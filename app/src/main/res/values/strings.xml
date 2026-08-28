@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">SD UI</string>
+    <string name="check_connection">接続を確認</string>
+    <string name="connection_not_checked">サーバー接続は未確認です</string>
+    <string name="connection_status_format">Server status: %1$s</string>
+    <string name="connection_unavailable_format">Server unavailable: %1$s</string>
+    <string name="connection_failed">サーバーへ接続できませんでした</string>
+</resources>
