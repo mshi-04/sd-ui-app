@@ -90,10 +90,12 @@ dependencies {
   implementation(libs.retrofit.kotlinx.serialization)
   implementation(libs.kotlinx.serialization.json)
 
-  // Local tests: JUnit Jupiter and coroutines
+  // Local tests
   testImplementation(libs.junit.jupiter)
   testImplementation(libs.kotlinx.coroutines.test)
+  testImplementation(libs.mockk)
   testImplementation(libs.okhttp.mockwebserver)
+  testImplementation(libs.turbine)
   testRuntimeOnly(libs.junit.platform.launcher)
 
   // Instrumented tests: jUnit rules and runners

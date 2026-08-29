@@ -76,18 +76,18 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 class ServerStatusCodeTest {
-    @Test
-    fun normalConstructorReturnsTrimmedValueWhenInputHasSurroundingWhitespace() {
-        // Arrange
-        val input = "  ok  "
+  @Test
+  fun normalConstructorReturnsTrimmedValueWhenInputHasSurroundingWhitespace() {
+    // Arrange
+    val input = " ok "
 
-        // Act
-        // Normal: surrounding whitespace is removed
-        val code = ServerStatusCode(input)
+    // Act
+    // Normal: surrounding whitespace is removed
+    val statusCode = ServerStatusCode(input)
 
-        // Assert
-        assertEquals("ok", code.value)
-    }
+    // Assert
+    assertEquals("ok", statusCode.value)
+  }
 }
 ```
 
@@ -111,12 +111,34 @@ class ServerStatusCodeTest {
 - ViewModel の `viewModelScope` を検証するときは、ViewModel 生成前に `Dispatchers.setMain(testDispatcher)` を行い、`@AfterEach` で `Dispatchers.resetMain()` する
 - `viewModelScope` の完了を待つ場合は `advanceUntilIdle()` を使う
 
-## Test Double
+## Test Double と Flow の検証手段
 
-- モックライブラリは未導入。テスト用の実装は、テストクラスと同じファイル内の private な fake で用意する
-- fake は、依存の状態や返却結果を単純に制御したい場合、呼び出し回数を数えたい場合に使う
+- fake は、依存の返却結果を単純に制御したい場合、同じテスト実装を複数箇所で再利用したい場合に使う。テストクラスと同じファイル内の private な実装として置く
+- MockK は、依存の呼び出し有無・回数・順序が主な検証対象の場合に使う。内部実装の細部まで固定する mock は避ける
+- suspend 関数の stub は `coEvery`、呼び出しの検証は `coVerify` を使う
 - Retrofit を跨ぐ経路は MockWebServer で実際の JSON 応答と HTTP エラーを再現し、`@AfterEach` で `shutdown()` する
+- cold Flow の先頭値だけが必要なら `first()`、有限 Flow がちょうど1件であることまで検証するなら `single()` を使う。`StateFlow` の現在値は `value`、操作後の emission の順序は Turbine で検証する
+- Turbine は、複数値の順序、未発火、時間制御、キャンセル、長寿命の `StateFlow` を検証するときに使う。中間状態を経由することが検証対象でなければ、`value` の比較で足りる
 - Screen が多くの callback を必須引数に持つ場合は、no-op を既定値にした private ヘルパーをテストクラス内に置き、各テストからは検証したい state だけを渡す
+
+`StateFlow` の emission 順序を Turbine で検証する例:
+
+```kotlin
+// Act & Assert
+// Flow: the UI state passes through checking before reaching connected
+viewModel.uiState.test {
+  assertEquals(ServerConnectionUiState.NotChecked, awaitItem().connection)
+  viewModel.checkConnection()
+  advanceUntilIdle()
+  assertEquals(ServerConnectionUiState.Checking, awaitItem().connection)
+  assertEquals(
+    ServerConnectionUiState.Connected(status = "ok", message = "ready"),
+    awaitItem().connection,
+  )
+}
+```
+
+最初の `awaitItem()` で collector の購読開始まで進めてから操作するため、中間状態を取りこぼしません。
 
 ## Instrumented Test
 
@@ -130,7 +152,6 @@ Compose UI Test は `createAndroidComposeRule<ComponentActivity>()` で Composab
 
 この方針は新規のテストと、実質的に変更するテストへ適用します。
 既存テスト全体は、意図した移行作業でない限り一括変更しません。
-現在の既存テストは、バッククォート関数名で AAA コメントを持たない書き方が残っています。
 
 ## 実行
 

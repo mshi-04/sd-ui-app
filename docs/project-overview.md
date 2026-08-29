@@ -71,6 +71,8 @@ SD UI は、サーバーと接続する Android クライアントです。
 
 - JUnit Jupiter（JVM Unit Test。`useJUnitPlatform()` を設定済み）
 - kotlinx-coroutines-test（`runTest`）
+- MockK（モック / 呼び出しの検証）
+- Turbine（`StateFlow` の emission 順序の検証）
 - OkHttp MockWebServer（Retrofit 経由の JSON 変換と失敗系の検証）
 - JUnit 4 / AndroidX Test / Espresso / Compose UI Test（instrumented test）
 
