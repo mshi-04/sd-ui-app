@@ -30,6 +30,7 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
 - `domain`: Android Framework に依存しないビジネスロジック
   - `model`: ドメインモデル（`UiSchema`、`UiComponent`、`UiSchemaResolution`）
   - `model/value`: 値オブジェクト（`SurfaceId`、`UiComponentId`）
+  - `usecase`: ビジネス上の操作を表す UseCase（`LoadUiSchemaUseCase`）
   - `repository`: Repository interface（`UiSchemaRepository`）
 - `data`: domain の interface を実装し、データ源を扱う
   - `remote`: Retrofit の API interface と remote data source
@@ -37,8 +38,6 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
   - `mapper`: data model から domain model への変換
   - `repository`: Repository 実装（`DefaultUiSchemaRepository`）
   - `di`: OkHttp、Retrofit、Json、API、Repository の Hilt module
-
-現在 `domain/usecase` は置いていません。判断の根拠は [UseCase](#usecase) を参照します。
 - app 直下
   - `SdUiApplication` / `MainActivity`: アプリと Android 画面の entry point
   - `di`: アプリ全体の構成値を提供する Hilt module と qualifier（`ApiBaseUrl`）
@@ -70,10 +69,8 @@ UI state / result / event は、それぞれ `XxxUiState` / `XxxUiResult` / `Xxx
 - ビジネスルール、複数 Repository の調停、複数画面からの再利用がない単純委譲は、層の形をそろえるためだけに UseCase 化しない
 - サーバー応答を業務上の意味へ解釈する判定のようなビジネスルールは、UseCase または domain model に置く
 
-現在の UI スキーマ取得は、契約上の結果の解釈を `UiSchemaResolution` が担い、
-UseCase を挟むと Repository への単純委譲になるため置いていません。
-`MainViewModel` は `UiSchemaRepository` に直接依存します。
-複数 Repository の調停や複数画面からの再利用が必要になった時点で UseCase を追加します。
+`LoadUiSchemaUseCase` は UI スキーマ取得の操作境界を持ち、対象 surface の既定値
+（`SurfaceId.DASHBOARD`）を所有します。ViewModel は surface を決めず、UseCase を呼びます。
 
 ## Value Object
 
@@ -99,6 +96,7 @@ UseCase を挟むと Repository への単純委譲になるため置いていま
    契約外の HTTP エラーと復号失敗は例外
 2. `data/repository`: 例外を捕捉して `Result.failure` に畳み、成功時は mapper で domain model へ変換して
    `UiSchemaResolution` へ解釈する
-3. `ui/viewmodel`: `Result` の成功 / 失敗と `UiSchemaResolution` を UI state へ変換する
+3. `domain/usecase`: 対象 surface を決めて操作を呼び、`Result` を握りつぶさずそのまま返す
+4. `ui/viewmodel`: `Result` の成功 / 失敗と `UiSchemaResolution` を UI state へ変換する
 
 この分担を崩さず、UI へ `Response`、例外型、DTO を直接渡しません。

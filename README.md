@@ -7,7 +7,7 @@ Kotlin と Jetpack Compose で構築する Android クライアントです。
 単一の `app` モジュール内で、依存方向を `ui -> domain <- data` に限定しています。
 
 - `ui`: `route`、`screen`、`state`、`viewmodel`、Compose テーマ
-- `domain`: Android 非依存のモデル、値オブジェクト、Repository インターフェース
+- `domain`: Android 非依存のモデル、値オブジェクト、Repository インターフェース、UseCase
 - `data`: Retrofit API、DTO、mapper、Repository 実装、Hilt module
 
 規模が大きくなった場合は、このパッケージ境界をそのまま Gradle モジュールへ分離できます。

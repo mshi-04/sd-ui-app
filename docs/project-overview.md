@@ -31,7 +31,7 @@ SD UI は、サーバーと接続する Android クライアントです。
 - `app/`: Android アプリ本体
 - `app/src/main/java/com/example/sdui/`: Kotlin ソース
   - `ui/`: Compose 画面（`route` / `screen`）、`viewmodel`、`state`、`theme`
-  - `domain/`: model、値オブジェクト、Repository interface
+  - `domain/`: model、値オブジェクト、UseCase、Repository interface
   - `data/`: Retrofit API、DTO、mapper、Repository 実装、data 層の Hilt module
   - `di/`: アプリ全体の構成値を組み立てる Hilt module と qualifier
   - `MainActivity` / `SdUiApplication`: Android 画面とアプリの entry point

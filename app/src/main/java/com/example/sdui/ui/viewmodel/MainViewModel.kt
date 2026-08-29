@@ -7,8 +7,7 @@ import com.example.sdui.domain.model.UiComponentType
 import com.example.sdui.domain.model.UiDensity
 import com.example.sdui.domain.model.UiSchemaResolution
 import com.example.sdui.domain.model.UiTheme
-import com.example.sdui.domain.model.value.SurfaceId
-import com.example.sdui.domain.repository.UiSchemaRepository
+import com.example.sdui.domain.usecase.LoadUiSchemaUseCase
 import com.example.sdui.ui.state.MainUiState
 import com.example.sdui.ui.state.UiComponentKindUiState
 import com.example.sdui.ui.state.UiComponentUiState
@@ -23,7 +22,7 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-  private val uiSchemaRepository: UiSchemaRepository,
+  private val loadUiSchemaUseCase: LoadUiSchemaUseCase,
 ) : ViewModel() {
   private val _uiState = MutableStateFlow(MainUiState())
   val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
@@ -34,7 +33,7 @@ class MainViewModel @Inject constructor(
     _uiState.update { state -> state.copy(schema = UiSchemaUiState.Loading) }
     viewModelScope.launch {
       val schema =
-        uiSchemaRepository.getUiSchema(SurfaceId.DASHBOARD).fold(
+        loadUiSchemaUseCase().fold(
           onSuccess = { resolution -> resolution.toUiState() },
           onFailure = { UiSchemaUiState.Failed },
         )

@@ -10,6 +10,7 @@ import com.example.sdui.domain.model.UiTheme
 import com.example.sdui.domain.model.value.SurfaceId
 import com.example.sdui.domain.model.value.UiComponentId
 import com.example.sdui.domain.repository.UiSchemaRepository
+import com.example.sdui.domain.usecase.LoadUiSchemaUseCase
 import com.example.sdui.ui.state.UiComponentKindUiState
 import com.example.sdui.ui.state.UiComponentUiState
 import com.example.sdui.ui.state.UiSchemaUiState
@@ -230,7 +231,7 @@ class MainViewModelTest {
   fun stateTransitionRepositoryFailureExposesFailedState() = runTest(dispatcher) {
     // Arrange
     val failure = Result.failure<UiSchemaResolution>(IOException("offline"))
-    val viewModel = MainViewModel(FakeUiSchemaRepository(failure))
+    val viewModel = createViewModel(FakeUiSchemaRepository(failure))
 
     // Act
     // StateTransition: a failed request is exposed as the failed state
@@ -245,7 +246,7 @@ class MainViewModelTest {
   fun interactionLoadWhileLoadingSkipsDuplicateRequest() = runTest(dispatcher) {
     // Arrange
     val repository = mockRepositoryReturning(resolved())
-    val viewModel = MainViewModel(repository)
+    val viewModel = createViewModel(repository)
 
     // Act
     // Interaction: a request started while loading does not reach the repository twice
@@ -261,7 +262,7 @@ class MainViewModelTest {
   fun interactionLoadAfterCompletionRequestsAgain() = runTest(dispatcher) {
     // Arrange
     val repository = mockRepositoryReturning(resolved())
-    val viewModel = MainViewModel(repository)
+    val viewModel = createViewModel(repository)
 
     // Act
     // Interaction: the guard only blocks while loading, so a finished load can run again
@@ -275,7 +276,10 @@ class MainViewModelTest {
   }
 
   private fun createViewModel(resolution: UiSchemaResolution): MainViewModel =
-    MainViewModel(FakeUiSchemaRepository(Result.success(resolution)))
+    createViewModel(FakeUiSchemaRepository(Result.success(resolution)))
+
+  private fun createViewModel(repository: UiSchemaRepository): MainViewModel =
+    MainViewModel(LoadUiSchemaUseCase(repository))
 
   private fun mockRepositoryReturning(resolution: UiSchemaResolution): UiSchemaRepository {
     val repository = mockk<UiSchemaRepository>()
