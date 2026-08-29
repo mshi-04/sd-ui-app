@@ -96,6 +96,7 @@ object、配列、`null` の値は落とします。数値と真偽値は文字�
 .\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/api/"
 ```
 
+画面が表示された時点で取得を始めるため、初期状態は `UiSchemaUiState.Loading` です。
 取得に失敗した状態（`SurfaceNotFound` / `Failed`）では、接続先を画面へ表示します。
 接続先の誤りとサーバー側の不具合を、画面だけで区別できるようにするためです。
 

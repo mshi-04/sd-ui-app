@@ -46,16 +46,17 @@ class MainViewModelTest {
   }
 
   @Test
-  fun normalInitialStateIsNotLoaded() = runTest(dispatcher) {
+  fun interactionSchemaIsRequestedWhenTheScreenIsShown() = runTest(dispatcher) {
     // Arrange
-    val viewModel = createViewModel(resolved())
+    val repository = mockRepositoryReturning(resolved())
 
     // Act
-    // Normal: no request is made until the screen asks for one
-    val actual = viewModel.uiState.value.schema
+    // Interaction: the screen shows the resolved schema without waiting for a tap
+    createViewModel(repository)
+    advanceUntilIdle()
 
     // Assert
-    assertEquals(UiSchemaUiState.NotLoaded, actual)
+    coVerify(exactly = 1) { repository.getUiSchema(SurfaceId.DASHBOARD) }
   }
 
   @Test
@@ -72,17 +73,15 @@ class MainViewModelTest {
   }
 
   @Test
-  fun flowLoadUiSchemaEmitsLoadingBeforeLoaded() = runTest(dispatcher) {
+  fun flowInitialLoadEmitsLoadingBeforeLoaded() = runTest(dispatcher) {
     // Arrange
     val viewModel = createViewModel(resolved(components = emptyList()))
 
     // Act & Assert
-    // Flow: the UI state passes through loading before reaching the loaded schema
+    // Flow: the screen starts on the loading state and reaches the schema without a tap
     viewModel.uiState.test {
-      assertEquals(UiSchemaUiState.NotLoaded, awaitItem().schema)
-      viewModel.loadUiSchema()
-      advanceUntilIdle()
       assertEquals(UiSchemaUiState.Loading, awaitItem().schema)
+      advanceUntilIdle()
       assertEquals(
         UiSchemaUiState.Loaded(
           revision = "a1b2c3",
@@ -116,7 +115,6 @@ class MainViewModelTest {
 
     // Act
     // Normal: the component tree is flattened into UI state without losing its structure
-    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
@@ -161,7 +159,6 @@ class MainViewModelTest {
 
     // Act
     // Normal: the prop that carries the display text differs per component type
-    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
@@ -186,7 +183,6 @@ class MainViewModelTest {
 
     // Act
     // Boundary: props are free-form, so a missing display prop still leaves the component named
-    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
@@ -201,7 +197,6 @@ class MainViewModelTest {
 
     // Act
     // Normal: theme and density are reduced to the flags the screen applies
-    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
@@ -219,7 +214,6 @@ class MainViewModelTest {
 
     // Act
     // StateTransition: a rejected token is shown as its own state instead of a failure
-    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
@@ -233,7 +227,6 @@ class MainViewModelTest {
 
     // Act
     // StateTransition: an unknown surface is shown as its own state instead of a failure
-    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
@@ -248,7 +241,6 @@ class MainViewModelTest {
 
     // Act
     // StateTransition: a failed request is exposed as the failed state
-    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
@@ -262,8 +254,7 @@ class MainViewModelTest {
     val viewModel = createViewModel(repository)
 
     // Act
-    // Interaction: a request started while loading does not reach the repository twice
-    viewModel.loadUiSchema()
+    // Interaction: a tap while the initial load is still running does not request twice
     viewModel.loadUiSchema()
     advanceUntilIdle()
 
@@ -279,7 +270,6 @@ class MainViewModelTest {
 
     // Act
     // Interaction: the guard only blocks while loading, so a finished load can run again
-    viewModel.loadUiSchema()
     advanceUntilIdle()
     viewModel.loadUiSchema()
     advanceUntilIdle()

@@ -29,9 +29,17 @@ class MainViewModel @Inject constructor(
   private val _uiState = MutableStateFlow(MainUiState(apiBaseUrl = apiBaseUrl))
   val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
+  init {
+    requestUiSchema()
+  }
+
   fun loadUiSchema() {
     if (_uiState.value.schema is UiSchemaUiState.Loading) return
 
+    requestUiSchema()
+  }
+
+  private fun requestUiSchema() {
     _uiState.update { state -> state.copy(schema = UiSchemaUiState.Loading) }
     viewModelScope.launch {
       val schema =

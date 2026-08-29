@@ -2,7 +2,9 @@ package com.example.sdui.ui.screen
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
@@ -19,6 +21,7 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
@@ -52,7 +55,6 @@ fun MainScreen(
           Modifier
             .fillMaxSize()
             .safeDrawingPadding()
-            .verticalScroll(rememberScrollState())
             .padding(spacing * 2),
         verticalArrangement = Arrangement.spacedBy(spacing),
       ) {
@@ -79,6 +81,7 @@ fun MainScreen(
           schema = uiState.schema,
           apiBaseUrl = uiState.apiBaseUrl,
           spacing = spacing,
+          modifier = Modifier.fillMaxWidth().weight(1f),
         )
       }
     }
@@ -86,30 +89,59 @@ fun MainScreen(
 }
 
 @Composable
-private fun UiSchemaContent(schema: UiSchemaUiState, apiBaseUrl: String, spacing: Dp) {
+private fun UiSchemaContent(
+  schema: UiSchemaUiState,
+  apiBaseUrl: String,
+  spacing: Dp,
+  modifier: Modifier = Modifier,
+) {
   when (schema) {
-    UiSchemaUiState.NotLoaded -> Text(stringResource(R.string.ui_schema_not_loaded))
-    UiSchemaUiState.Loading -> CircularProgressIndicator()
-    UiSchemaUiState.Unauthorized -> Text(stringResource(R.string.ui_schema_unauthorized))
-    UiSchemaUiState.SurfaceNotFound -> {
-      Text(stringResource(R.string.ui_schema_surface_not_found))
-      ApiBaseUrlCaption(apiBaseUrl = apiBaseUrl)
-    }
-    UiSchemaUiState.Failed -> {
-      Text(stringResource(R.string.ui_schema_failed))
-      ApiBaseUrlCaption(apiBaseUrl = apiBaseUrl)
-    }
-    is UiSchemaUiState.Loaded -> {
-      Text(
-        text = stringResource(R.string.ui_schema_revision_format, schema.revision),
-        style = MaterialTheme.typography.labelMedium,
-      )
-      if (schema.components.isEmpty()) {
-        Text(stringResource(R.string.ui_schema_empty))
+    UiSchemaUiState.Loading ->
+      Box(modifier = modifier, contentAlignment = Alignment.Center) {
+        CircularProgressIndicator()
       }
-      UiComponentList(components = schema.components, spacing = spacing)
-    }
+    UiSchemaUiState.Unauthorized ->
+      UiSchemaMessage(modifier = modifier, spacing = spacing) {
+        Text(stringResource(R.string.ui_schema_unauthorized))
+      }
+    UiSchemaUiState.SurfaceNotFound ->
+      UiSchemaMessage(modifier = modifier, spacing = spacing) {
+        Text(stringResource(R.string.ui_schema_surface_not_found))
+        ApiBaseUrlCaption(apiBaseUrl = apiBaseUrl)
+      }
+    UiSchemaUiState.Failed ->
+      UiSchemaMessage(modifier = modifier, spacing = spacing) {
+        Text(stringResource(R.string.ui_schema_failed))
+        ApiBaseUrlCaption(apiBaseUrl = apiBaseUrl)
+      }
+    is UiSchemaUiState.Loaded ->
+      Column(
+        modifier = modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(spacing),
+      ) {
+        Text(
+          text = stringResource(R.string.ui_schema_revision_format, schema.revision),
+          style = MaterialTheme.typography.labelMedium,
+        )
+        if (schema.components.isEmpty()) {
+          Text(stringResource(R.string.ui_schema_empty))
+        }
+        UiComponentList(components = schema.components, spacing = spacing)
+      }
   }
+}
+
+@Composable
+private fun UiSchemaMessage(
+  modifier: Modifier,
+  spacing: Dp,
+  content: @Composable ColumnScope.() -> Unit,
+) {
+  Column(
+    modifier = modifier,
+    verticalArrangement = Arrangement.spacedBy(spacing),
+    content = content,
+  )
 }
 
 @Composable

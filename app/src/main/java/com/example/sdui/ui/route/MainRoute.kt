@@ -20,6 +20,10 @@ fun MainRoute(
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+  LaunchedEffect(Unit) {
+    viewModel.loadUiSchema()
+  }
+
   LaunchedEffect(uiState.schema) {
     if (uiState.schema is UiSchemaUiState.Unauthorized) onUnauthorized()
   }

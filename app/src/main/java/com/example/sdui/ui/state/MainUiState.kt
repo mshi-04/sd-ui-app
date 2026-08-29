@@ -2,12 +2,10 @@ package com.example.sdui.ui.state
 
 data class MainUiState(
   val apiBaseUrl: String = "",
-  val schema: UiSchemaUiState = UiSchemaUiState.NotLoaded,
+  val schema: UiSchemaUiState = UiSchemaUiState.Loading,
 )
 
 sealed interface UiSchemaUiState {
-  data object NotLoaded : UiSchemaUiState
-
   data object Loading : UiSchemaUiState
 
   data class Loaded(

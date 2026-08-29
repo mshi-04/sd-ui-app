@@ -20,25 +20,23 @@ class MainScreenTest {
   @get:Rule val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
   @Test
-  fun normalNotLoadedStateShowsPromptAndEnabledButton() {
+  fun normalLoadingStateDisablesTheReloadButton() {
     // Act
-    // Normal: the screen invites the first schema request
-    setMainScreen()
-
-    // Assert
-    onText(R.string.ui_schema_not_loaded).assertIsDisplayed()
-    onText(R.string.load_ui_schema).assertIsEnabled()
-  }
-
-  @Test
-  fun normalLoadingStateReplacesPromptAndDisablesLoadButton() {
-    // Act
-    // Normal: the prompt gives way to progress while a request is in flight
+    // Normal: the screen loads on its own, so reloading is blocked while a request is in flight
     setMainScreen(MainUiState(schema = UiSchemaUiState.Loading))
 
     // Assert
-    onText(R.string.ui_schema_not_loaded).assertDoesNotExist()
     onText(R.string.load_ui_schema).assertIsNotEnabled()
+  }
+
+  @Test
+  fun normalSettledStateAllowsReloading() {
+    // Act
+    // Normal: once a request has settled the schema can be requested again
+    setMainScreen()
+
+    // Assert
+    onText(R.string.load_ui_schema).assertIsEnabled()
   }
 
   @Test
@@ -214,7 +212,7 @@ class MainScreenTest {
     )
 
   private fun setMainScreen(
-    uiState: MainUiState = MainUiState(),
+    uiState: MainUiState = MainUiState(schema = loaded()),
     accountName: String = ACCOUNT_NAME,
     onLoadUiSchema: () -> Unit = {},
     onSignOut: () -> Unit = {},

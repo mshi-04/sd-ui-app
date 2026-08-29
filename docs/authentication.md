@@ -52,6 +52,7 @@ AuthorizationInterceptor ── AccessTokenProvider ─────────�
 
 1. 起動時に `SessionViewModel` が `RestoreSessionUseCase` を呼び、サイレントでトークン取得を試みる
 2. 取得できれば `MainRoute`、できなければ `LoginRoute` を表示する
+   `MainRoute` は表示された時点で UI スキーマの取得を始める
 3. サインイン成功を `LoginRoute` が `SessionRoute` へ伝え、セッションを取り直す
 4. UI スキーマ取得が 401（`UiSchemaResolution.Unauthorized`）になった場合はサインアウトし、ログイン画面へ戻す
 5. `MainScreen` のサインアウトボタンからも同じ経路でログイン画面へ戻る
@@ -101,6 +102,7 @@ UPN は画面には表示します（サインイン中のアカウントの確�
 
 テストユーザーごとに `dashboard` の表示が変わることを確認します。
 アカウントを変えるときは、画面のサインアウトボタンで一度セッションを切ります。
+サインインし直すと `MainRoute` が再表示され、その利用者のスキーマを取り直します。
 
 | テストユーザー | 期待する表示 |
 | --- | --- |
