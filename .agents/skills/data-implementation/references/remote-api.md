@@ -4,9 +4,9 @@
 
 ## 確認する対象
 
-- `data/remote/` の `SdUiApi` と `ServerStatusRemoteDataSource`
-- `data/model/` の DTO（`HealthResponseDto`）
-- `data/di/NetworkModule` の `Json` / `Retrofit` / API の provide
+- `data/remote/` の `SdUiApi`、`UiSchemaRemoteDataSource`、`UiSchemaResponse`
+- `data/model/` の DTO（`UiSchemaDto`）
+- `data/di/NetworkModule` の `Json` / `OkHttpClient` / `Retrofit` / API の provide
 - [`docs/server-contract.md`](../../../../docs/server-contract.md) のエンドポイントと応答
 
 ## 実装時の注意

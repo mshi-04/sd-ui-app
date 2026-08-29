@@ -2,10 +2,16 @@ package com.example.sdui.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.sdui.domain.model.ServerAvailability
-import com.example.sdui.domain.usecase.CheckServerStatusUseCase
+import com.example.sdui.domain.model.UiComponent
+import com.example.sdui.domain.model.UiComponentType
+import com.example.sdui.domain.model.UiDensity
+import com.example.sdui.domain.model.UiSchemaResolution
+import com.example.sdui.domain.model.UiTheme
+import com.example.sdui.domain.usecase.LoadUiSchemaUseCase
 import com.example.sdui.ui.state.MainUiState
-import com.example.sdui.ui.state.ServerConnectionUiState
+import com.example.sdui.ui.state.UiComponentKindUiState
+import com.example.sdui.ui.state.UiComponentUiState
+import com.example.sdui.ui.state.UiSchemaUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,35 +22,71 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
-  private val checkServerStatusUseCase: CheckServerStatusUseCase,
+  private val loadUiSchemaUseCase: LoadUiSchemaUseCase,
 ) : ViewModel() {
   private val _uiState = MutableStateFlow(MainUiState())
   val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
-  fun checkConnection() {
-    if (_uiState.value.connection is ServerConnectionUiState.Checking) return
+  fun loadUiSchema() {
+    if (_uiState.value.schema is UiSchemaUiState.Loading) return
 
-    _uiState.update { state -> state.copy(connection = ServerConnectionUiState.Checking) }
+    _uiState.update { state -> state.copy(schema = UiSchemaUiState.Loading) }
     viewModelScope.launch {
-      val connection =
-        checkServerStatusUseCase().fold(
-          onSuccess = { availability ->
-            when (availability) {
-              is ServerAvailability.Available ->
-                ServerConnectionUiState.Connected(
-                  status = availability.status.code.value,
-                  message = availability.status.message?.value,
-                )
-              is ServerAvailability.Unavailable ->
-                ServerConnectionUiState.Unavailable(
-                  status = availability.status.code.value,
-                  message = availability.status.message?.value,
-                )
-            }
-          },
-          onFailure = { ServerConnectionUiState.Failed },
+      val schema =
+        loadUiSchemaUseCase().fold(
+          onSuccess = { resolution -> resolution.toUiState() },
+          onFailure = { UiSchemaUiState.Failed },
         )
-      _uiState.update { state -> state.copy(connection = connection) }
+      _uiState.update { state -> state.copy(schema = schema) }
     }
+  }
+
+  private fun UiSchemaResolution.toUiState(): UiSchemaUiState =
+    when (this) {
+      is UiSchemaResolution.Resolved ->
+        UiSchemaUiState.Loaded(
+          revision = schema.revision,
+          darkTheme = schema.theme == UiTheme.DARK,
+          compact = schema.density == UiDensity.COMPACT,
+          components = schema.components.map { component -> component.toUiState() },
+        )
+      UiSchemaResolution.Unauthorized -> UiSchemaUiState.Unauthorized
+      UiSchemaResolution.SurfaceNotFound -> UiSchemaUiState.SurfaceNotFound
+    }
+
+  private fun UiComponent.toUiState(): UiComponentUiState =
+    UiComponentUiState(
+      id = id.value,
+      kind = type.toUiState(),
+      label = labelOrNull() ?: id.value,
+      children = children.map { child -> child.toUiState() },
+    )
+
+  private fun UiComponent.labelOrNull(): String? =
+    when (type) {
+      UiComponentType.CARD -> props[TITLE_PROP]
+      UiComponentType.PANEL -> props[TITLE_PROP] ?: props[SOURCE_PROP]
+      UiComponentType.LIST -> props[SOURCE_PROP]
+      UiComponentType.CHART -> props[METRIC_PROP]
+      UiComponentType.BUTTON -> props[LABEL_PROP]
+      UiComponentType.BANNER -> props[TONE_PROP]
+    }
+
+  private fun UiComponentType.toUiState(): UiComponentKindUiState =
+    when (this) {
+      UiComponentType.CARD -> UiComponentKindUiState.CARD
+      UiComponentType.LIST -> UiComponentKindUiState.LIST
+      UiComponentType.CHART -> UiComponentKindUiState.CHART
+      UiComponentType.BUTTON -> UiComponentKindUiState.BUTTON
+      UiComponentType.BANNER -> UiComponentKindUiState.BANNER
+      UiComponentType.PANEL -> UiComponentKindUiState.PANEL
+    }
+
+  private companion object {
+    const val TITLE_PROP = "title"
+    const val LABEL_PROP = "label"
+    const val METRIC_PROP = "metric"
+    const val SOURCE_PROP = "source"
+    const val TONE_PROP = "tone"
   }
 }

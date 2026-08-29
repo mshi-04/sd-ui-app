@@ -17,7 +17,7 @@ fun MainRoute(
 
   MainScreen(
     uiState = uiState,
-    onCheckConnection = viewModel::checkConnection,
+    onLoadUiSchema = viewModel::loadUiSchema,
     modifier = modifier,
   )
 }

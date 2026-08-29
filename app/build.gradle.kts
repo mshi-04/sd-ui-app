@@ -7,9 +7,11 @@ plugins {
 }
 
 val apiBaseUrl =
-  providers.gradleProperty("API_BASE_URL").orElse("https://example.com/").map { url ->
+  providers.gradleProperty("API_BASE_URL").orElse("https://example.com/api/").map { url ->
     if (url.endsWith('/')) url else "$url/"
   }
+val devOid = providers.gradleProperty("DEV_OID").orElse("")
+val devRoles = providers.gradleProperty("DEV_ROLES").orElse("")
 
 android {
     namespace = "com.example.sdui"
@@ -25,6 +27,10 @@ android {
     }
 
     buildTypes {
+        debug {
+            buildConfigField("String", "DEV_OID", "\"${devOid.get()}\"")
+            buildConfigField("String", "DEV_ROLES", "\"${devRoles.get()}\"")
+        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
@@ -89,6 +95,7 @@ dependencies {
   implementation(libs.retrofit)
   implementation(libs.retrofit.kotlinx.serialization)
   implementation(libs.kotlinx.serialization.json)
+  implementation(libs.okhttp)
 
   // Local tests
   testImplementation(libs.junit.jupiter)

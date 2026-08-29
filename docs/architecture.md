@@ -28,16 +28,16 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
   - `state`: UI state（`XxxUiState`）と、その構成要素となる UI 契約の型
   - `theme`: Compose / Material 3 テーマ
 - `domain`: Android Framework に依存しないビジネスロジック
-  - `model`: ドメインモデル（`ServerStatus`、`ServerAvailability`）
-  - `model/value`: 値オブジェクト（`ServerStatusCode`、`ServerStatusMessage`）
-  - `usecase`: ビジネス上の操作を表す UseCase（`CheckServerStatusUseCase`）
-  - `repository`: Repository interface（`ServerStatusRepository`）
+  - `model`: ドメインモデル（`UiSchema`、`UiComponent`、`UiSchemaResolution`）
+  - `model/value`: 値オブジェクト（`SurfaceId`、`UiComponentId`）
+  - `usecase`: ビジネス上の操作を表す UseCase（`LoadUiSchemaUseCase`）
+  - `repository`: Repository interface（`UiSchemaRepository`）
 - `data`: domain の interface を実装し、データ源を扱う
   - `remote`: Retrofit の API interface と remote data source
   - `model`: DTO など data 層固有のモデル
   - `mapper`: data model から domain model への変換
-  - `repository`: Repository 実装（`DefaultServerStatusRepository`）
-  - `di`: Retrofit、Json、API、Repository の Hilt module
+  - `repository`: Repository 実装（`DefaultUiSchemaRepository`）
+  - `di`: OkHttp、Retrofit、Json、API、Repository の Hilt module
 - app 直下
   - `SdUiApplication` / `MainActivity`: アプリと Android 画面の entry point
   - `di`: アプリ全体の構成値を提供する Hilt module と qualifier（`ApiBaseUrl`）
@@ -67,7 +67,10 @@ UI state / result / event は、それぞれ `XxxUiState` / `XxxUiResult` / `Xxx
 - ViewModel は UseCase または domain の Repository interface に依存する
 - UseCase は、できるだけ1つの明確な操作を表す
 - ビジネスルール、複数 Repository の調停、複数画面からの再利用がない単純委譲は、層の形をそろえるためだけに UseCase 化しない
-- サーバー応答を「利用可能 / 利用不可」へ解釈する判定のようなビジネスルールは、UseCase または domain model に置く
+- サーバー応答を業務上の意味へ解釈する判定のようなビジネスルールは、UseCase または domain model に置く
+
+`LoadUiSchemaUseCase` は UI スキーマ取得の操作境界を持ち、対象 surface の既定値
+（`SurfaceId.DASHBOARD`）を所有します。ViewModel は surface を決めず、UseCase を呼びます。
 
 ## Value Object
 
@@ -89,9 +92,11 @@ UI state / result / event は、それぞれ `XxxUiState` / `XxxUiResult` / `Xxx
 
 サーバー応答は次の経路で UI state へ変換します。層をまたぐ度に、扱う型を1段ずつドメイン寄りへ移します。
 
-1. `data/remote`: Retrofit が DTO へ復号する。HTTP エラーと復号失敗は例外
-2. `data/repository`: 例外を捕捉して `Result.failure` に畳み、成功時は mapper で domain model へ変換する
-3. `domain/usecase`: 成功した domain model を業務上の意味（利用可能 / 利用不可）へ解釈する
-4. `ui/viewmodel`: `Result` の成功 / 失敗と domain の解釈結果を UI state へ変換する
+1. `data/remote`: Retrofit が `Response` を返し、契約に書かれたステータスを `UiSchemaResponse` へ分類する。
+   契約外の HTTP エラーと復号失敗は例外
+2. `data/repository`: 例外を捕捉して `Result.failure` に畳み、成功時は mapper で domain model へ変換して
+   `UiSchemaResolution` へ解釈する
+3. `domain/usecase`: 対象 surface を決めて操作を呼び、`Result` を握りつぶさずそのまま返す
+4. `ui/viewmodel`: `Result` の成功 / 失敗と `UiSchemaResolution` を UI state へ変換する
 
 この分担を崩さず、UI へ `Response`、例外型、DTO を直接渡しません。

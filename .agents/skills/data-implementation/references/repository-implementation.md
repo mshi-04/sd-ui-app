@@ -4,7 +4,7 @@ domain の Repository interface を既存データ源に接続し、実装詳細
 
 ## 確認する対象
 
-- `data/repository/` の既存実装（`DefaultServerStatusRepository`）
+- `data/repository/` の既存実装（`DefaultUiSchemaRepository`）
 - 対応する domain interface の期待値と、remote data source の失敗の種類
 - `data/di/RepositoryModule` の binding
 

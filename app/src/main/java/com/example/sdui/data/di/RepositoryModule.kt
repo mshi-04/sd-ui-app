@@ -1,7 +1,7 @@
 package com.example.sdui.data.di
 
-import com.example.sdui.data.repository.DefaultServerStatusRepository
-import com.example.sdui.domain.repository.ServerStatusRepository
+import com.example.sdui.data.repository.DefaultUiSchemaRepository
+import com.example.sdui.domain.repository.UiSchemaRepository
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -13,7 +13,7 @@ import javax.inject.Singleton
 abstract class RepositoryModule {
   @Binds
   @Singleton
-  abstract fun bindServerStatusRepository(
-    implementation: DefaultServerStatusRepository,
-  ): ServerStatusRepository
+  abstract fun bindUiSchemaRepository(
+    implementation: DefaultUiSchemaRepository,
+  ): UiSchemaRepository
 }

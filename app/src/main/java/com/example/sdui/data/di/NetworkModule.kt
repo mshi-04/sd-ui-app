@@ -8,7 +8,9 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Singleton
 import kotlinx.serialization.json.Json
+import okhttp3.Interceptor
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.kotlinx.serialization.asConverterFactory
 
@@ -21,12 +23,21 @@ object NetworkModule {
 
   @Provides
   @Singleton
+  fun provideOkHttpClient(interceptors: Set<@JvmSuppressWildcards Interceptor>): OkHttpClient =
+    OkHttpClient.Builder()
+      .apply { interceptors.forEach(::addInterceptor) }
+      .build()
+
+  @Provides
+  @Singleton
   fun provideRetrofit(
     json: Json,
+    okHttpClient: OkHttpClient,
     @ApiBaseUrl baseUrl: String,
   ): Retrofit =
     Retrofit.Builder()
       .baseUrl(baseUrl)
+      .client(okHttpClient)
       .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
       .build()
 

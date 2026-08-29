@@ -4,7 +4,7 @@
 
 ## 確認する対象
 
-- `domain/usecase/` の既存 UseCase（`CheckServerStatusUseCase`）
+- `domain/usecase/` の既存 UseCase（`LoadUiSchemaUseCase`）
 - 依存する Repository interface の戻り値（`Result` を含む）と、呼び出し元の ViewModel
 
 ## 実装時の注意

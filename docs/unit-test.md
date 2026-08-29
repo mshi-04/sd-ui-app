@@ -75,18 +75,18 @@ instrumented test で検証するもの:
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-class ServerStatusCodeTest {
+class SurfaceIdTest {
   @Test
   fun normalConstructorReturnsTrimmedValueWhenInputHasSurroundingWhitespace() {
     // Arrange
-    val input = " ok "
+    val input = " dashboard "
 
     // Act
     // Normal: surrounding whitespace is removed
-    val statusCode = ServerStatusCode(input)
+    val surfaceId = SurfaceId(input)
 
     // Assert
-    assertEquals("ok", statusCode.value)
+    assertEquals("dashboard", surfaceId.value)
   }
 }
 ```

@@ -1,9 +1,15 @@
 package com.example.sdui.data.remote
 
-import com.example.sdui.data.model.HealthResponseDto
+import com.example.sdui.data.model.UiSchemaDto
+import retrofit2.Response
 import retrofit2.http.GET
+import retrofit2.http.Header
+import retrofit2.http.Path
 
 interface SdUiApi {
-  @GET("health")
-  suspend fun getHealth(): HealthResponseDto
+  @GET("ui/{surface}")
+  suspend fun getUiSchema(
+    @Path("surface") surface: String,
+    @Header("If-None-Match") etag: String?,
+  ): Response<UiSchemaDto>
 }

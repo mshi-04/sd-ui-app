@@ -14,15 +14,32 @@ task の入力を変えるプロパティを渡すと configuration cache は作
 
 ## ベース URL の指定
 
-`API_BASE_URL` を渡さない場合は `https://example.com/` が使われます。
+`API_BASE_URL` を渡さない場合は `https://example.com/api/` が使われます。
+ベース URL は `/api/` で終わり、エンドポイントはその下の `ui/{surface}` になります。
 ローカルサーバーへ向ける場合は Gradle プロパティで差し替えます。
 
 ```powershell
-.\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/"
+.\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/api/"
 ```
 
 エミュレーターからホストの `localhost` を指す場合は `10.0.2.2` を使います。
 平文 HTTP は `debug` ビルドだけで許可されます。詳細は [`docs/server-contract.md`](server-contract.md) を参照します。
+
+## ローカルサーバーと利用者の指定
+
+サーバー側リポジトリ (`sd-ui-infra`) の `scripts/dev_server.py` は、トークンを検証せず
+seed のスキーマを返します。利用者は `X-Dev-Oid` と `X-Dev-Roles` で切り替えます。
+`debug` ビルドだけが、次の Gradle プロパティの値をこのヘッダーとして送ります。
+
+```powershell
+.\gradlew.bat :app:assembleDebug `
+  "-PAPI_BASE_URL=http://10.0.2.2:8080/api/" `
+  "-PDEV_OID=00000000-0000-0000-0000-000000000000" `
+  "-PDEV_ROLES=SupportAgent,UiAdmin"
+```
+
+指定しない場合はヘッダーを送らず、サーバーは権限を持たない利用者として応答します。
+`release` ビルドにはこのヘッダーの送信経路がありません。
 
 ## ローカルでの検証
 
