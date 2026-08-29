@@ -15,7 +15,7 @@
 | --- | --- |
 | `surface` | 画面識別子。現在は `dashboard` のみ |
 | `If-None-Match` | 直前の応答の `ETag`。保持していない場合は送らない |
-| `Authorization` | `Bearer <access token>`。未実装（[未実装のもの](#未実装のもの)を参照） |
+| `Authorization` | `Bearer <access token>`。MSAL で取得する。構成は [`docs/authentication.md`](authentication.md) |
 
 | ステータス | 意味 |
 | --- | --- |
@@ -102,6 +102,7 @@ object、配列、`null` の値は落とします。数値と真偽値は文字�
 
 `sd-ui-infra` のローカルサーバーはトークンを検証せず、ヘッダーで利用者を切り替えます。
 `debug` ビルドだけがこのヘッダーを送ります（`app/src/debug` の `DevIdentityModule`）。
+指定した場合は `Authorization` を送りません。排他の仕組みは [`docs/authentication.md`](authentication.md) を正本とします。
 
 | Gradle プロパティ | 送信ヘッダー | 内容 |
 | --- | --- | --- |
@@ -152,8 +153,7 @@ UiSchemaDto -> UiSchema -> UiSchemaResolution -> UiSchemaUiState
 
 以下は未実装です。実装済みとして扱わず、必要になった時点で導入します。
 
-- MSAL による認証と `Authorization` ヘッダー。client id は `sd-ui-infra` の `envs/dev` を
-  apply するまで確定しないため、現在はローカルサーバー向けのヘッダー切り替えだけを持つ
+- release ビルド用の redirect URI 登録（現在は debug キーストア由来の値だけを持つ）
 - `props` の object / 配列 / `null` 値の保持
 - `Button` などの component が持つ action の実行
 - `ETag` と解決済みスキーマの永続化

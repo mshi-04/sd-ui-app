@@ -12,4 +12,8 @@ object AppConfigModule {
   @Provides
   @ApiBaseUrl
   fun provideApiBaseUrl(): String = BuildConfig.API_BASE_URL
+
+  @Provides
+  @ApiScope
+  fun provideApiScope(): String = BuildConfig.API_SCOPE
 }

@@ -13,7 +13,8 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
 - UseCase はビジネスルール、複数処理の調停、再利用する操作の境界として置き、単純委譲のためだけには増やさない
 - 依存注入は Hilt で行い、`SdUiApplication` と `di` / `data.di` を composition boundary とする。
   `di` はアプリ全体の構成値（`BuildConfig` 由来の値など）、`data.di` は data 層の binding を担う
-- app entry と DI module は依存を組み立てる composition root のため、配線に必要な具象型を参照できる
+- app entry と DI module は依存を組み立てる composition root のため、配線に必要な具象型を参照できる。
+  `MainActivity` が `SignInActivityHolder` へ自身を登録するのはこの位置づけによる
 
 ## レイヤー構成
 
@@ -22,25 +23,28 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
 型の接尾語だけを根拠に `data` / `type` / `event` などの補助パッケージを増やしません。
 
 - `ui`: Compose 画面、ViewModel、UI state
-  - `route`: ViewModel と画面を接続し、`collectAsStateWithLifecycle()` で state を収集する `XxxRoute`
+  - `route`: ViewModel と画面を接続し、`collectAsStateWithLifecycle()` で state を収集する `XxxRoute`。
+    `SessionRoute` はサインイン状態で `LoginRoute` と `MainRoute` を出し分ける
   - `screen`: state と callback を受け取る `XxxScreen`。メニュー開閉など短命な UI element state は保持してよい
   - `viewmodel`: 画面ごとの `XxxViewModel`
   - `state`: UI state（`XxxUiState`）と、その構成要素となる UI 契約の型
   - `theme`: Compose / Material 3 テーマ
 - `domain`: Android Framework に依存しないビジネスロジック
-  - `model`: ドメインモデル（`UiSchema`、`UiComponent`、`UiSchemaResolution`）
-  - `model/value`: 値オブジェクト（`SurfaceId`、`UiComponentId`）
-  - `usecase`: ビジネス上の操作を表す UseCase（`LoadUiSchemaUseCase`）
-  - `repository`: Repository interface（`UiSchemaRepository`）
+  - `model`: ドメインモデル（`UiSchema`、`UiComponent`、`UiSchemaResolution`、`AuthSession`、`AuthAccount`）
+  - `model/value`: 値オブジェクト（`SurfaceId`、`UiComponentId`、`AccountId`、`AccountName`）
+  - `usecase`: ビジネス上の操作を表す UseCase（`LoadUiSchemaUseCase`、`SignInUseCase` など）
+  - `repository`: Repository interface（`UiSchemaRepository`、`AuthRepository`）
 - `data`: domain の interface を実装し、データ源を扱う
-  - `remote`: Retrofit の API interface と remote data source
+  - `remote`: Retrofit の API interface、remote data source、OkHttp interceptor
+  - `auth`: MSAL を包む認証クライアントと、対話サインインに必要な Activity の保持
   - `model`: DTO など data 層固有のモデル
   - `mapper`: data model から domain model への変換
-  - `repository`: Repository 実装（`DefaultUiSchemaRepository`）
-  - `di`: OkHttp、Retrofit、Json、API、Repository の Hilt module
+  - `repository`: Repository 実装（`DefaultUiSchemaRepository`、`DefaultAuthRepository`）
+  - `di`: OkHttp、Retrofit、Json、API、認証、Repository の Hilt module。
+    ローカル検証用ヘッダーの有無は `app/src/debug` と `app/src/release` で分ける
 - app 直下
   - `SdUiApplication` / `MainActivity`: アプリと Android 画面の entry point
-  - `di`: アプリ全体の構成値を提供する Hilt module と qualifier（`ApiBaseUrl`）
+  - `di`: アプリ全体の構成値を提供する Hilt module と qualifier（`ApiBaseUrl`、`ApiScope`、`DevIdentityConfigured`）
 
 画面固有の callback 集約、補助 data class、enum、test tag は、
 所有する `route` / `screen` / `viewmodel` / `state` へ置きます。
@@ -71,6 +75,8 @@ UI state / result / event は、それぞれ `XxxUiState` / `XxxUiResult` / `Xxx
 
 `LoadUiSchemaUseCase` は UI スキーマ取得の操作境界を持ち、対象 surface の既定値
 （`SurfaceId.DASHBOARD`）を所有します。ViewModel は surface を決めず、UseCase を呼びます。
+認証は `RestoreSessionUseCase` / `SignInUseCase` / `SignOutUseCase` の3つに分け、
+1つの UseCase が1つの操作を表す形をそろえます。
 
 ## Value Object
 

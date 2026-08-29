@@ -103,6 +103,30 @@ class MainScreenTest {
   }
 
   @Test
+  fun normalSignedInAccountIsShownOnTheScreen() {
+    // Act
+    // Normal: the signed in account is visible so the resolved schema can be attributed to it
+    setMainScreen()
+
+    // Assert
+    onText(R.string.signed_in_as_format, ACCOUNT_NAME).assertIsDisplayed()
+  }
+
+  @Test
+  fun interactionSignOutButtonInvokesCallback() {
+    // Arrange
+    var signOutCount = 0
+
+    // Act
+    // Interaction: tapping the button asks the caller to drop the session
+    setMainScreen(onSignOut = { signOutCount += 1 })
+    onText(R.string.sign_out).performClick()
+
+    // Assert
+    assertEquals(1, signOutCount)
+  }
+
+  @Test
   fun normalLoadedSchemaShowsServerRevision() {
     // Act
     // Normal: the revision of the resolved schema is visible on the screen
@@ -164,16 +188,24 @@ class MainScreenTest {
 
   private fun setMainScreen(
     uiState: MainUiState = MainUiState(),
+    accountName: String = ACCOUNT_NAME,
     onLoadUiSchema: () -> Unit = {},
+    onSignOut: () -> Unit = {},
   ) {
     composeTestRule.setContent {
       MainScreen(
         uiState = uiState,
+        accountName = accountName,
         onLoadUiSchema = onLoadUiSchema,
+        onSignOut = onSignOut,
       )
     }
   }
 
   private fun onText(resourceId: Int, vararg formatArgs: Any) =
     composeTestRule.onNodeWithText(composeTestRule.activity.getString(resourceId, *formatArgs))
+
+  private companion object {
+    const val ACCOUNT_NAME = "plain@example.onmicrosoft.com"
+  }
 }

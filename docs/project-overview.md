@@ -19,6 +19,7 @@ SD UI は、サーバーと接続する Android クライアントです。
 
 ## 現在の主な機能
 
+- MSAL による Entra ID サインインと、サインイン状態に応じたログイン画面 / ダッシュボードの出し分け
 - `GET /ui/{surface}` による UI スキーマの取得と、取得結果に応じた画面表示の切り替え
 - サーバーが解決した component ツリーの描画（未知の `type` はスキップ）
 - `ETag` と `If-None-Match` による条件付き取得（プロセス内のメモリ保持のみ）
@@ -32,12 +33,14 @@ SD UI は、サーバーと接続する Android クライアントです。
 - `app/src/main/java/com/example/sdui/`: Kotlin ソース
   - `ui/`: Compose 画面（`route` / `screen`）、`viewmodel`、`state`、`theme`
   - `domain/`: model、値オブジェクト、UseCase、Repository interface
-  - `data/`: Retrofit API、DTO、mapper、Repository 実装、data 層の Hilt module
+  - `data/`: Retrofit API、DTO、mapper、MSAL クライアント、Repository 実装、data 層の Hilt module
   - `di/`: アプリ全体の構成値を組み立てる Hilt module と qualifier
   - `MainActivity` / `SdUiApplication`: Android 画面とアプリの entry point
 - `app/src/main/res/`: Android リソース（表示文字列は `strings.xml` に集約）
 - `app/src/debug/AndroidManifest.xml`: `debug` ビルドだけの平文 HTTP 許可
 - `app/src/debug/java/com/example/sdui/data/di/`: `debug` ビルドだけのローカル検証用ヘッダー送信
+- `app/src/release/java/com/example/sdui/data/di/`: `release` ビルドの構成（ローカル検証用ヘッダーを持たない）
+- `app/src/main/res/raw/msal_config.json`: MSAL の構成
 - `app/src/test/`: JVM Unit Test
 - `app/src/androidTest/`: instrumented test / Compose UI Test
 - `gradle/libs.versions.toml`: 依存関係とプラグインのバージョン管理
@@ -51,6 +54,11 @@ SD UI は、サーバーと接続する Android クライアントです。
 - Material 3
 - Dynamic Color（Android 12 以上）とライト / ダークモード
 - Compose Preview
+
+### Auth
+
+- MSAL Android（単一アカウント構成）
+- 構成と動作確認は [`docs/authentication.md`](authentication.md) を正本とします。
 
 ### DI
 
@@ -94,10 +102,10 @@ SD UI は、サーバーと接続する Android クライアントです。
 
 以下は未導入です。実装済みとして扱わず、必要になった時点で導入を提案します。
 
-- 認証（MSAL、`Authorization` ヘッダー）
 - ビルドフレーバー
-- Navigation Compose（画面は `MainRoute` 単一）
-- ローカル DB / 永続化（Room、DataStore）
+- Navigation Compose（ログイン画面とダッシュボードの出し分けは `SessionRoute` の状態分岐で行う）
+- ローカル DB / 永続化（Room、DataStore。MSAL 自身のトークンキャッシュは除く）
+- release ビルド用の redirect URI 登録
 - 静的解析（ktlint、detekt、Android Lint の運用設定）
 - Git フック、fastlane、GitHub Actions などの CI
 - カバレッジ計測
