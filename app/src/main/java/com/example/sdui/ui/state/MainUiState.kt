@@ -1,6 +1,7 @@
 package com.example.sdui.ui.state
 
 data class MainUiState(
+  val apiBaseUrl: String = "",
   val schema: UiSchemaUiState = UiSchemaUiState.NotLoaded,
 )
 

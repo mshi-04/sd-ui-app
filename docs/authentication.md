@@ -13,7 +13,7 @@ Entra ID 側のアプリ登録とスコープの正本はサーバー側リポ�
 | client_id | `22222222-2222-4222-8222-222222222222` | `res/raw/msal_config.json` |
 | account_mode | `SINGLE` | `res/raw/msal_config.json` |
 | redirect_uri | `msauth://com.example.sdui/AAAAAAAAAAAAAAAAAAAAAAAAAAA%3D` | `res/raw/msal_config.json` |
-| scope | `api://33333333-3333-4333-8333-333333333333/UiSchema.Read` | Gradle プロパティ `API_SCOPE` |
+| scope | `api://33333333-3333-4333-8333-333333333333/UiSchema.Read` | `gradle.properties` の `API_SCOPE` |
 
 `AndroidManifest.xml` の `BrowserTabActivity` には **URL エンコード前**の値を書きます。
 
@@ -90,10 +90,14 @@ UPN は画面には表示します（サインイン中のアカウントの確�
 実 API へ向けてインストールします。
 
 ```powershell
-.\gradlew.bat installDebug "-PAPI_BASE_URL=https://sdui-api.example.invalid/api/"
+.\gradlew.bat installDebug
 ```
 
+接続先は `gradle.properties` の `API_BASE_URL` から入るため、Android Studio の Run ボタンでも同じです。
 `DEV_OID` / `DEV_ROLES` を渡すと `Authorization` を送らなくなるため、実 API の確認では指定しません。
+
+表示取得に失敗した場合は、画面に接続先が出ます。`https://sdui-api.example.invalid/api/`
+以外が出ている場合は、接続先の設定が上書きされています。
 
 テストユーザーごとに `dashboard` の表示が変わることを確認します。
 アカウントを変えるときは、画面のサインアウトボタンで一度セッションを切ります。

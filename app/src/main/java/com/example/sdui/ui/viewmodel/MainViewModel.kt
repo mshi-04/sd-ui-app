@@ -2,6 +2,7 @@ package com.example.sdui.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.sdui.di.ApiBaseUrl
 import com.example.sdui.domain.model.UiComponent
 import com.example.sdui.domain.model.UiComponentType
 import com.example.sdui.domain.model.UiDensity
@@ -23,8 +24,9 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class MainViewModel @Inject constructor(
   private val loadUiSchemaUseCase: LoadUiSchemaUseCase,
+  @ApiBaseUrl apiBaseUrl: String,
 ) : ViewModel() {
-  private val _uiState = MutableStateFlow(MainUiState())
+  private val _uiState = MutableStateFlow(MainUiState(apiBaseUrl = apiBaseUrl))
   val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
 
   fun loadUiSchema() {

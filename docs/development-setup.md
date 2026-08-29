@@ -14,9 +14,15 @@ task の入力を変えるプロパティを渡すと configuration cache は作
 
 ## ベース URL の指定
 
-`API_BASE_URL` を渡さない場合は `https://example.com/api/` が使われます。
+`API_BASE_URL` と `API_SCOPE` は `gradle.properties` に置いてあり、Android Studio の
+Run ボタンからのビルドにも効きます。既定値は dev の実 API です。
+
+どちらも未設定または空の場合はビルドが失敗します。既定値へ暗黙に落ちないため、
+設定漏れが実行時の 404 ではなくビルド時のエラーとして出ます。
+`local.properties` は `providers.gradleProperty` の対象外なので使えません。
+
 ベース URL は `/api/` で終わり、エンドポイントはその下の `ui/{surface}` になります。
-ローカルサーバーへ向ける場合は Gradle プロパティで差し替えます。
+ローカルサーバーへ一時的に向ける場合は Gradle プロパティで上書きします。
 
 ```powershell
 .\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/api/"

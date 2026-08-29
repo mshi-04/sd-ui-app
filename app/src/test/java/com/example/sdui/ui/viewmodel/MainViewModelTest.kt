@@ -59,6 +59,19 @@ class MainViewModelTest {
   }
 
   @Test
+  fun normalConfiguredBaseUrlIsExposedForDiagnostics() = runTest(dispatcher) {
+    // Arrange
+    val viewModel = createViewModel(resolved())
+
+    // Act
+    // Normal: the screen can tell a misconfigured host apart from a server side failure
+    val actual = viewModel.uiState.value.apiBaseUrl
+
+    // Assert
+    assertEquals(API_BASE_URL, actual)
+  }
+
+  @Test
   fun flowLoadUiSchemaEmitsLoadingBeforeLoaded() = runTest(dispatcher) {
     // Arrange
     val viewModel = createViewModel(resolved(components = emptyList()))
@@ -279,7 +292,10 @@ class MainViewModelTest {
     createViewModel(FakeUiSchemaRepository(Result.success(resolution)))
 
   private fun createViewModel(repository: UiSchemaRepository): MainViewModel =
-    MainViewModel(LoadUiSchemaUseCase(repository))
+    MainViewModel(
+      loadUiSchemaUseCase = LoadUiSchemaUseCase(repository),
+      apiBaseUrl = API_BASE_URL,
+    )
 
   private fun mockRepositoryReturning(resolution: UiSchemaResolution): UiSchemaRepository {
     val repository = mockk<UiSchemaRepository>()
@@ -318,6 +334,10 @@ class MainViewModelTest {
       props = props,
       children = children,
     )
+
+  private companion object {
+    const val API_BASE_URL = "https://sdui-api.example.invalid/api/"
+  }
 }
 
 private class FakeUiSchemaRepository(

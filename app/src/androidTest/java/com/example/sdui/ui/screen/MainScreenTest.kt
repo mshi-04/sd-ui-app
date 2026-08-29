@@ -167,6 +167,33 @@ class MainScreenTest {
   }
 
   @Test
+  fun normalUnsuccessfulRequestShowsTheConfiguredBaseUrl() {
+    // Arrange
+    val uiState =
+      MainUiState(apiBaseUrl = API_BASE_URL, schema = UiSchemaUiState.SurfaceNotFound)
+
+    // Act
+    // Normal: a wrong host has to be distinguishable from a server side failure
+    setMainScreen(uiState)
+
+    // Assert
+    onText(R.string.api_base_url_format, API_BASE_URL).assertIsDisplayed()
+  }
+
+  @Test
+  fun boundarySuccessfulRequestKeepsTheBaseUrlOffTheScreen() {
+    // Arrange
+    val uiState = MainUiState(apiBaseUrl = API_BASE_URL, schema = loaded())
+
+    // Act
+    // Boundary: the diagnostic caption only belongs on the states that could be a misconfiguration
+    setMainScreen(uiState)
+
+    // Assert
+    onText(R.string.api_base_url_format, API_BASE_URL).assertDoesNotExist()
+  }
+
+  @Test
   fun normalFailedStateShowsConnectionFailureMessage() {
     // Act
     // Normal: a transport failure is reported with a fixed local message
@@ -207,5 +234,6 @@ class MainScreenTest {
 
   private companion object {
     const val ACCOUNT_NAME = "plain@example.onmicrosoft.com"
+    const val API_BASE_URL = "https://sdui-api.example.invalid/api/"
   }
 }

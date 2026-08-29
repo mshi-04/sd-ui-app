@@ -13,4 +13,5 @@
     <string name="ui_schema_surface_not_found">指定した画面はサーバーにありません</string>
     <string name="ui_schema_failed">サーバーへ接続できませんでした</string>
     <string name="ui_schema_revision_format">revision: %1$s</string>
+    <string name="api_base_url_format">接続先: %1$s</string>
 </resources>

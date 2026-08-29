@@ -6,13 +6,13 @@ plugins {
   alias(libs.plugins.kotlin.serialization)
 }
 
-val apiBaseUrl =
-  providers.gradleProperty("API_BASE_URL").orElse("https://example.com/api/").map { url ->
-    if (url.endsWith('/')) url else "$url/"
+fun requiredProperty(name: String): String =
+  providers.gradleProperty(name).orNull.orEmpty().trim().ifEmpty {
+    throw GradleException("$name is not set. Add it to gradle.properties, or pass -P$name=<value>.")
   }
-val apiScope =
-  providers.gradleProperty("API_SCOPE")
-    .orElse("api://33333333-3333-4333-8333-333333333333/UiSchema.Read")
+
+val apiBaseUrl = requiredProperty("API_BASE_URL").trimEnd('/') + "/"
+val apiScope = requiredProperty("API_SCOPE")
 val devOid = providers.gradleProperty("DEV_OID").orElse("")
 val devRoles = providers.gradleProperty("DEV_ROLES").orElse("")
 
@@ -26,8 +26,8 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
-        buildConfigField("String", "API_SCOPE", "\"${apiScope.get()}\"")
+        buildConfigField("String", "API_BASE_URL", "\"$apiBaseUrl\"")
+        buildConfigField("String", "API_SCOPE", "\"$apiScope\"")
     }
 
     buildTypes {

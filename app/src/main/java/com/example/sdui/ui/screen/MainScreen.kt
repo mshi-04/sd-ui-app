@@ -75,20 +75,30 @@ fun MainScreen(
             Text(stringResource(R.string.sign_out))
           }
         }
-        UiSchemaContent(schema = uiState.schema, spacing = spacing)
+        UiSchemaContent(
+          schema = uiState.schema,
+          apiBaseUrl = uiState.apiBaseUrl,
+          spacing = spacing,
+        )
       }
     }
   }
 }
 
 @Composable
-private fun UiSchemaContent(schema: UiSchemaUiState, spacing: Dp) {
+private fun UiSchemaContent(schema: UiSchemaUiState, apiBaseUrl: String, spacing: Dp) {
   when (schema) {
     UiSchemaUiState.NotLoaded -> Text(stringResource(R.string.ui_schema_not_loaded))
     UiSchemaUiState.Loading -> CircularProgressIndicator()
     UiSchemaUiState.Unauthorized -> Text(stringResource(R.string.ui_schema_unauthorized))
-    UiSchemaUiState.SurfaceNotFound -> Text(stringResource(R.string.ui_schema_surface_not_found))
-    UiSchemaUiState.Failed -> Text(stringResource(R.string.ui_schema_failed))
+    UiSchemaUiState.SurfaceNotFound -> {
+      Text(stringResource(R.string.ui_schema_surface_not_found))
+      ApiBaseUrlCaption(apiBaseUrl = apiBaseUrl)
+    }
+    UiSchemaUiState.Failed -> {
+      Text(stringResource(R.string.ui_schema_failed))
+      ApiBaseUrlCaption(apiBaseUrl = apiBaseUrl)
+    }
     is UiSchemaUiState.Loaded -> {
       Text(
         text = stringResource(R.string.ui_schema_revision_format, schema.revision),
@@ -100,6 +110,14 @@ private fun UiSchemaContent(schema: UiSchemaUiState, spacing: Dp) {
       UiComponentList(components = schema.components, spacing = spacing)
     }
   }
+}
+
+@Composable
+private fun ApiBaseUrlCaption(apiBaseUrl: String) {
+  Text(
+    text = stringResource(R.string.api_base_url_format, apiBaseUrl),
+    style = MaterialTheme.typography.labelSmall,
+  )
 }
 
 @Composable

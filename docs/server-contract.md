@@ -86,14 +86,18 @@ object、配列、`null` の値は落とします。数値と真偽値は文字�
 
 ## ベース URL
 
-- Gradle プロパティ `API_BASE_URL` で差し替える
+- 既定値は `gradle.properties` の `API_BASE_URL` に置く。現在の値は dev の実 API
+- 既定値を持たず、未設定または空の場合はビルドを失敗させる
+- 一時的に差し替える場合だけ Gradle プロパティで上書きする
 - 末尾の `/` はビルド時に補完される
-- 未指定時の既定値は `https://example.com/api/`
 - 値は `BuildConfig.API_BASE_URL` を経由し、`@ApiBaseUrl` qualifier 付きで注入される
 
 ```powershell
 .\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/api/"
 ```
+
+取得に失敗した状態（`SurfaceNotFound` / `Failed`）では、接続先を画面へ表示します。
+接続先の誤りとサーバー側の不具合を、画面だけで区別できるようにするためです。
 
 `debug` ビルドだけがローカル開発向けの平文 HTTP 通信を許可します（`app/src/debug/AndroidManifest.xml`）。
 `release` ビルドでは許可しません。

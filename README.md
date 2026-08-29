@@ -32,13 +32,13 @@ Kotlin と Jetpack Compose で構築する Android クライアントです。
 未知の `type` の component はスキップします。200 は表示、304 は保持中のスキーマ、401 と 404 はそれぞれ専用の UI state、
 その他の HTTP エラーや不正 JSON は通信失敗として、異なる UI state へ変換します。
 
-サーバーのベース URL は Gradle プロパティ `API_BASE_URL` で差し替えられます。末尾の `/` はビルド時に補完されます。
+サーバーのベース URL は `gradle.properties` の `API_BASE_URL` に置いています。一時的な差し替えは Gradle プロパティで上書きします。末尾の `/` はビルド時に補完されます。
 
 ```powershell
 .\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/api/"
 ```
 
-`debug` ビルドだけはローカル開発向け HTTP 通信を許可し、`release` ビルドでは許可しません。URL 未指定時は `https://example.com/api/` を使用します。
+`debug` ビルドだけはローカル開発向け HTTP 通信を許可し、`release` ビルドでは許可しません。`API_BASE_URL` と `API_SCOPE` に既定値はなく、未設定ならビルドが失敗します。
 
 ## Authentication
 
