@@ -4,7 +4,7 @@ Domain の意味を持つ値を、不正状態を作れない型に閉じる。
 
 ## 確認する対象
 
-- `domain/model/value/` の既存 value object（`ServerStatusCode`、`ServerStatusMessage`）
+- `domain/model/value/` の既存 value object（`SurfaceId`、`UiComponentId`）
 - その値を受け渡す model / UseCase と、data 層の mapper 変換
 
 ## 実装時の注意

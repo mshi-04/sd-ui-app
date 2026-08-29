@@ -4,7 +4,7 @@ DTO から domain model への変換責務を mapper に閉じる。
 
 ## 確認する対象
 
-- `data/mapper/` の既存 mapper（`ServerStatusMapper`）
+- `data/mapper/` の既存 mapper（`UiSchemaMapper`）
 - 変換元の DTO と、変換先の domain model / value object
 
 ## 実装時の注意

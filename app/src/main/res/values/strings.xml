@@ -1,8 +1,10 @@
 <resources>
     <string name="app_name">SD UI</string>
-    <string name="check_connection">接続を確認</string>
-    <string name="connection_not_checked">サーバー接続は未確認です</string>
-    <string name="connection_status_format">Server status: %1$s</string>
-    <string name="connection_unavailable_format">Server unavailable: %1$s</string>
-    <string name="connection_failed">サーバーへ接続できませんでした</string>
+    <string name="load_ui_schema">表示を取得</string>
+    <string name="ui_schema_not_loaded">表示スキーマは未取得です</string>
+    <string name="ui_schema_empty">表示できる要素がありません</string>
+    <string name="ui_schema_unauthorized">サーバーに認証されていないため表示できません</string>
+    <string name="ui_schema_surface_not_found">指定した画面はサーバーにありません</string>
+    <string name="ui_schema_failed">サーバーへ接続できませんでした</string>
+    <string name="ui_schema_revision_format">revision: %1$s</string>
 </resources>

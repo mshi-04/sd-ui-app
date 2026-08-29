@@ -19,21 +19,25 @@ SD UI は、サーバーと接続する Android クライアントです。
 
 ## 現在の主な機能
 
-- `GET /health` によるサーバー疎通確認と、結果に応じた画面表示の切り替え
+- `GET /ui/{surface}` による UI スキーマの取得と、取得結果に応じた画面表示の切り替え
+- サーバーが解決した component ツリーの描画（未知の `type` はスキップ）
+- `ETag` と `If-None-Match` による条件付き取得（プロセス内のメモリ保持のみ）
 
-サーバー契約は仮のものです。詳細は [`docs/server-contract.md`](server-contract.md) を正本とします。
+契約の正本はサーバー側リポジトリ (`sd-ui-infra`) の `docs/client_integration.md` です。
+クライアント側の受け取り方は [`docs/server-contract.md`](server-contract.md) を正本とします。
 
 ## 主な確認先
 
 - `app/`: Android アプリ本体
 - `app/src/main/java/com/example/sdui/`: Kotlin ソース
   - `ui/`: Compose 画面（`route` / `screen`）、`viewmodel`、`state`、`theme`
-  - `domain/`: model、値オブジェクト、UseCase、Repository interface
+  - `domain/`: model、値オブジェクト、Repository interface
   - `data/`: Retrofit API、DTO、mapper、Repository 実装、data 層の Hilt module
   - `di/`: アプリ全体の構成値を組み立てる Hilt module と qualifier
   - `MainActivity` / `SdUiApplication`: Android 画面とアプリの entry point
 - `app/src/main/res/`: Android リソース（表示文字列は `strings.xml` に集約）
 - `app/src/debug/AndroidManifest.xml`: `debug` ビルドだけの平文 HTTP 許可
+- `app/src/debug/java/com/example/sdui/data/di/`: `debug` ビルドだけのローカル検証用ヘッダー送信
 - `app/src/test/`: JVM Unit Test
 - `app/src/androidTest/`: instrumented test / Compose UI Test
 - `gradle/libs.versions.toml`: 依存関係とプラグインのバージョン管理
@@ -62,6 +66,7 @@ SD UI は、サーバーと接続する Android クライアントです。
 ### Network
 
 - Retrofit
+- OkHttp（interceptor は Hilt の multibinding で組み立てる）
 - kotlinx.serialization（`Json` converter factory、`ignoreUnknownKeys = true`）
 - ベース URL は Gradle プロパティ `API_BASE_URL` から `BuildConfig` 経由で注入
 
@@ -89,6 +94,7 @@ SD UI は、サーバーと接続する Android クライアントです。
 
 以下は未導入です。実装済みとして扱わず、必要になった時点で導入を提案します。
 
+- 認証（MSAL、`Authorization` ヘッダー）
 - ビルドフレーバー
 - Navigation Compose（画面は `MainRoute` 単一）
 - ローカル DB / 永続化（Room、DataStore）

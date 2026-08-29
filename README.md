@@ -7,33 +7,40 @@ Kotlin と Jetpack Compose で構築する Android クライアントです。
 単一の `app` モジュール内で、依存方向を `ui -> domain <- data` に限定しています。
 
 - `ui`: `route`、`screen`、`state`、`viewmodel`、Compose テーマ
-- `domain`: Android 非依存のモデル、値オブジェクト、Repository インターフェース、UseCase
+- `domain`: Android 非依存のモデル、値オブジェクト、Repository インターフェース
 - `data`: Retrofit API、DTO、mapper、Repository 実装、Hilt module
 
 規模が大きくなった場合は、このパッケージ境界をそのまま Gradle モジュールへ分離できます。
 
 ## Server connection
 
-現在は `GET /health` が次の JSON を返す前提の仮契約です。
+`GET {baseUrl}ui/{surface}` で UI スキーマを取得し、サーバーが解決した component ツリーを描画します。
 
 ```json
 {
-  "status": "ok",
-  "message": "ready"
+  "surface": "dashboard",
+  "version": "2026-06-01",
+  "revision": "a1b2c3",
+  "theme": "dark",
+  "density": "compact",
+  "components": [
+    { "id": "billing-summary", "type": "Card", "props": { "title": "Billing" }, "children": [] }
+  ]
 }
 ```
 
-`status` は必須です。`ok` は接続可能、`ok` 以外はサーバー都合の利用不可、HTTPエラーや不正JSONは通信失敗として、それぞれ異なる UI state へ変換します。
+未知の `type` の component はスキップします。200 は表示、304 は保持中のスキーマ、401 と 404 はそれぞれ専用の UI state、
+その他の HTTP エラーや不正 JSON は通信失敗として、異なる UI state へ変換します。
 
 サーバーのベース URL は Gradle プロパティ `API_BASE_URL` で差し替えられます。末尾の `/` はビルド時に補完されます。
 
 ```powershell
-.\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/"
+.\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/api/"
 ```
 
-`debug` ビルドだけはローカル開発向け HTTP 通信を許可し、`release` ビルドでは許可しません。URL 未指定時は `https://example.com/` を使用します。
+`debug` ビルドだけはローカル開発向け HTTP 通信を許可し、`release` ビルドでは許可しません。URL 未指定時は `https://example.com/api/` を使用します。
 
-Azure 固有の URL、認証、証明書設定はサーバー契約確定後に追加します。現時点の通信層は通常の Retrofit API として分離しています。
+MSAL による認証は未実装です。ローカル検証では `DEV_OID` / `DEV_ROLES` の Gradle プロパティで利用者を切り替えます。
 
 ## Test
 
@@ -43,4 +50,4 @@ JVM 単体テストには JUnit Jupiter、Compose の端末テストには Andro
 .\gradlew.bat :app:testDebugUnitTest
 ```
 
-テストでは MockWebServer による `GET /health` の JSON 変換と、成功・失敗に応じた ViewModel の UI state 遷移を確認します。
+テストでは MockWebServer による `GET /ui/{surface}` の JSON 変換と条件付き取得、成功・失敗に応じた ViewModel の UI state 遷移を確認します。

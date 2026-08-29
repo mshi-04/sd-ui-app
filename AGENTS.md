@@ -7,7 +7,7 @@ SD UI で Codex が最初に読む入口です。
 
 - [`docs/project-overview.md`](docs/project-overview.md): プロジェクト概要 / 主要な確認先 / 技術スタック / 未導入のもの
 - [`docs/architecture.md`](docs/architecture.md): Clean Architecture / MVVM の構造方針 / エラーの流れ
-- [`docs/server-contract.md`](docs/server-contract.md): `GET /health` の契約 / ベース URL / 応答の分類と変換経路
+- [`docs/server-contract.md`](docs/server-contract.md): `GET /ui/{surface}` の契約 / ベース URL / 応答の分類と変換経路
 - [`docs/implementation-guidelines.md`](docs/implementation-guidelines.md): 実装時の基本方針
 - [`docs/development-setup.md`](docs/development-setup.md): 開発環境の前提 / ローカル検証コマンド
 - [`docs/unit-test.md`](docs/unit-test.md): Unit Test の方針
@@ -43,5 +43,5 @@ Codex 向け skill は `.agents/skills/` で管理する。Claude Code 向けの
 - 単一モジュール内で `ui` / `domain` / `data` のパッケージ境界を保つ
 - UI は Kotlin / Jetpack Compose / Material 3 を軸にする
 - 構造は Clean Architecture + MVVM を軸にする
-- サーバー契約は仮であり、確定時に `docs/server-contract.md` を更新する
+- サーバー契約の正本は `sd-ui-infra` の `docs/client_integration.md` で、受け取り方は `docs/server-contract.md` に書く
 - 未導入の技術は、実装済みとして扱わない（ビルドフレーバー、Navigation Compose、ローカル DB、静的解析、CI は未導入）

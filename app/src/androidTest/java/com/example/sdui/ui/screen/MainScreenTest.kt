@@ -9,7 +9,9 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.example.sdui.R
 import com.example.sdui.ui.state.MainUiState
-import com.example.sdui.ui.state.ServerConnectionUiState
+import com.example.sdui.ui.state.UiComponentKindUiState
+import com.example.sdui.ui.state.UiComponentUiState
+import com.example.sdui.ui.state.UiSchemaUiState
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -18,112 +20,156 @@ class MainScreenTest {
   @get:Rule val composeTestRule = createAndroidComposeRule<ComponentActivity>()
 
   @Test
-  fun normalNotCheckedStateShowsPromptAndEnabledButton() {
+  fun normalNotLoadedStateShowsPromptAndEnabledButton() {
     // Act
-    // Normal: the screen invites the first connection check
+    // Normal: the screen invites the first schema request
     setMainScreen()
 
     // Assert
-    onText(R.string.connection_not_checked).assertIsDisplayed()
-    onText(R.string.check_connection).assertIsEnabled()
+    onText(R.string.ui_schema_not_loaded).assertIsDisplayed()
+    onText(R.string.load_ui_schema).assertIsEnabled()
   }
 
   @Test
-  fun normalCheckingStateReplacesPromptAndDisablesCheckButton() {
+  fun normalLoadingStateReplacesPromptAndDisablesLoadButton() {
     // Act
     // Normal: the prompt gives way to progress while a request is in flight
-    setMainScreen(MainUiState(connection = ServerConnectionUiState.Checking))
+    setMainScreen(MainUiState(schema = UiSchemaUiState.Loading))
 
     // Assert
-    onText(R.string.connection_not_checked).assertDoesNotExist()
-    onText(R.string.check_connection).assertIsNotEnabled()
+    onText(R.string.ui_schema_not_loaded).assertDoesNotExist()
+    onText(R.string.load_ui_schema).assertIsNotEnabled()
   }
 
   @Test
-  fun interactionCheckButtonInvokesCallback() {
+  fun interactionLoadButtonInvokesCallback() {
     // Arrange
-    var checkCount = 0
+    var loadCount = 0
 
     // Act
-    // Interaction: tapping the button asks the caller to run a check
-    setMainScreen(onCheckConnection = { checkCount += 1 })
-    onText(R.string.check_connection).performClick()
+    // Interaction: tapping the button asks the caller to load the schema
+    setMainScreen(onLoadUiSchema = { loadCount += 1 })
+    onText(R.string.load_ui_schema).performClick()
 
     // Assert
-    assertEquals(1, checkCount)
+    assertEquals(1, loadCount)
   }
 
   @Test
-  fun normalConnectedStateShowsServerMessage() {
+  fun normalLoadedSchemaShowsNestedComponentLabels() {
     // Arrange
-    val connection = ServerConnectionUiState.Connected(status = "ok", message = "ready")
+    val card =
+      UiComponentUiState(
+        id = "billing-summary",
+        kind = UiComponentKindUiState.CARD,
+        label = "Billing",
+        children =
+          listOf(
+            UiComponentUiState(
+              id = "invoice-list",
+              kind = UiComponentKindUiState.LIST,
+              label = "invoices",
+              children = emptyList(),
+            ),
+          ),
+      )
 
     // Act
-    // Normal: the server message is preferred for an available server
-    setMainScreen(MainUiState(connection = connection))
+    // Normal: every level of the resolved component tree is rendered
+    setMainScreen(MainUiState(schema = loaded(components = listOf(card))))
 
     // Assert
-    composeTestRule.onNodeWithText("ready").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Billing").assertIsDisplayed()
+    composeTestRule.onNodeWithText("invoices").assertIsDisplayed()
   }
 
   @Test
-  fun boundaryConnectedStateWithoutMessageShowsStatusFallback() {
+  fun boundaryButtonComponentIsRenderedWithoutAnAction() {
     // Arrange
-    val connection = ServerConnectionUiState.Connected(status = "ok", message = null)
+    val button =
+      UiComponentUiState(
+        id = "refund-action",
+        kind = UiComponentKindUiState.BUTTON,
+        label = "Refund",
+        children = emptyList(),
+      )
 
     // Act
-    // Boundary: without a server message the status code is shown instead
-    setMainScreen(MainUiState(connection = connection))
+    // Boundary: the contract carries no action, so the rendered control stays inert
+    setMainScreen(MainUiState(schema = loaded(components = listOf(button))))
 
     // Assert
-    onText(R.string.connection_status_format, "ok").assertIsDisplayed()
+    composeTestRule.onNodeWithText("Refund").assertIsNotEnabled()
   }
 
   @Test
-  fun normalUnavailableStateShowsServerMessage() {
-    // Arrange
-    val connection =
-      ServerConnectionUiState.Unavailable(status = "maintenance", message = "try later")
-
+  fun normalLoadedSchemaShowsServerRevision() {
     // Act
-    // Normal: the server message is preferred for an unavailable server
-    setMainScreen(MainUiState(connection = connection))
+    // Normal: the revision of the resolved schema is visible on the screen
+    setMainScreen(MainUiState(schema = loaded()))
 
     // Assert
-    composeTestRule.onNodeWithText("try later").assertIsDisplayed()
+    onText(R.string.ui_schema_revision_format, "a1b2c3").assertIsDisplayed()
   }
 
   @Test
-  fun boundaryUnavailableStateWithoutMessageShowsStatusFallback() {
-    // Arrange
-    val connection = ServerConnectionUiState.Unavailable(status = "maintenance", message = null)
-
+  fun boundaryLoadedSchemaWithoutComponentsShowsEmptyMessage() {
     // Act
-    // Boundary: without a server message the status code is shown instead
-    setMainScreen(MainUiState(connection = connection))
+    // Boundary: entitlement filtering can leave a surface with nothing to render
+    setMainScreen(MainUiState(schema = loaded()))
 
     // Assert
-    onText(R.string.connection_unavailable_format, "maintenance").assertIsDisplayed()
+    onText(R.string.ui_schema_empty).assertIsDisplayed()
+  }
+
+  @Test
+  fun normalUnauthorizedStateShowsAuthenticationMessage() {
+    // Act
+    // Normal: a rejected token is reported with a fixed local message
+    setMainScreen(MainUiState(schema = UiSchemaUiState.Unauthorized))
+
+    // Assert
+    onText(R.string.ui_schema_unauthorized).assertIsDisplayed()
+  }
+
+  @Test
+  fun normalSurfaceNotFoundStateShowsUnknownSurfaceMessage() {
+    // Act
+    // Normal: an unknown surface is reported with a fixed local message
+    setMainScreen(MainUiState(schema = UiSchemaUiState.SurfaceNotFound))
+
+    // Assert
+    onText(R.string.ui_schema_surface_not_found).assertIsDisplayed()
   }
 
   @Test
   fun normalFailedStateShowsConnectionFailureMessage() {
     // Act
     // Normal: a transport failure is reported with a fixed local message
-    setMainScreen(MainUiState(connection = ServerConnectionUiState.Failed))
+    setMainScreen(MainUiState(schema = UiSchemaUiState.Failed))
 
     // Assert
-    onText(R.string.connection_failed).assertIsDisplayed()
+    onText(R.string.ui_schema_failed).assertIsDisplayed()
   }
+
+  private fun loaded(
+    components: List<UiComponentUiState> = emptyList(),
+  ): UiSchemaUiState.Loaded =
+    UiSchemaUiState.Loaded(
+      revision = "a1b2c3",
+      darkTheme = false,
+      compact = false,
+      components = components,
+    )
 
   private fun setMainScreen(
     uiState: MainUiState = MainUiState(),
-    onCheckConnection: () -> Unit = {},
+    onLoadUiSchema: () -> Unit = {},
   ) {
     composeTestRule.setContent {
       MainScreen(
         uiState = uiState,
-        onCheckConnection = onCheckConnection,
+        onLoadUiSchema = onLoadUiSchema,
       )
     }
   }

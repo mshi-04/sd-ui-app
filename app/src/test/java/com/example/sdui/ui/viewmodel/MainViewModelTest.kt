@@ -1,12 +1,18 @@
 package com.example.sdui.ui.viewmodel
 
 import app.cash.turbine.test
-import com.example.sdui.domain.model.ServerStatus
-import com.example.sdui.domain.model.value.ServerStatusCode
-import com.example.sdui.domain.model.value.ServerStatusMessage
-import com.example.sdui.domain.repository.ServerStatusRepository
-import com.example.sdui.domain.usecase.CheckServerStatusUseCase
-import com.example.sdui.ui.state.ServerConnectionUiState
+import com.example.sdui.domain.model.UiComponent
+import com.example.sdui.domain.model.UiComponentType
+import com.example.sdui.domain.model.UiDensity
+import com.example.sdui.domain.model.UiSchema
+import com.example.sdui.domain.model.UiSchemaResolution
+import com.example.sdui.domain.model.UiTheme
+import com.example.sdui.domain.model.value.SurfaceId
+import com.example.sdui.domain.model.value.UiComponentId
+import com.example.sdui.domain.repository.UiSchemaRepository
+import com.example.sdui.ui.state.UiComponentKindUiState
+import com.example.sdui.ui.state.UiComponentUiState
+import com.example.sdui.ui.state.UiSchemaUiState
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -19,6 +25,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assertions.assertAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -38,141 +45,279 @@ class MainViewModelTest {
   }
 
   @Test
-  fun normalInitialStateIsNotChecked() = runTest(dispatcher) {
+  fun normalInitialStateIsNotLoaded() = runTest(dispatcher) {
     // Arrange
-    val viewModel = createViewModel(FakeServerStatusRepository(Result.success(okStatus())))
+    val viewModel = createViewModel(resolved())
 
     // Act
     // Normal: no request is made until the screen asks for one
-    val actual = viewModel.uiState.value.connection
+    val actual = viewModel.uiState.value.schema
 
     // Assert
-    assertEquals(ServerConnectionUiState.NotChecked, actual)
+    assertEquals(UiSchemaUiState.NotLoaded, actual)
   }
 
   @Test
-  fun flowCheckConnectionEmitsCheckingBeforeConnected() = runTest(dispatcher) {
+  fun flowLoadUiSchemaEmitsLoadingBeforeLoaded() = runTest(dispatcher) {
     // Arrange
-    val viewModel = createViewModel(FakeServerStatusRepository(Result.success(okStatus())))
+    val viewModel = createViewModel(resolved(components = emptyList()))
 
     // Act & Assert
-    // Flow: the UI state passes through checking before reaching connected
+    // Flow: the UI state passes through loading before reaching the loaded schema
     viewModel.uiState.test {
-      assertEquals(ServerConnectionUiState.NotChecked, awaitItem().connection)
-      viewModel.checkConnection()
+      assertEquals(UiSchemaUiState.NotLoaded, awaitItem().schema)
+      viewModel.loadUiSchema()
       advanceUntilIdle()
-      assertEquals(ServerConnectionUiState.Checking, awaitItem().connection)
+      assertEquals(UiSchemaUiState.Loading, awaitItem().schema)
       assertEquals(
-        ServerConnectionUiState.Connected(status = "ok", message = "ready"),
-        awaitItem().connection,
+        UiSchemaUiState.Loaded(
+          revision = "a1b2c3",
+          darkTheme = false,
+          compact = false,
+          components = emptyList(),
+        ),
+        awaitItem().schema,
       )
     }
   }
 
   @Test
-  fun boundaryStatusWithoutMessageExposesNullMessage() = runTest(dispatcher) {
+  fun normalResolvedComponentsKeepTheirNestingInUiState() = runTest(dispatcher) {
     // Arrange
-    val status = serverStatus(code = "ok", message = null)
-    val viewModel = createViewModel(FakeServerStatusRepository(Result.success(status)))
+    val card =
+      component(
+        id = "billing-summary",
+        type = UiComponentType.CARD,
+        props = mapOf("title" to "Billing"),
+        children =
+          listOf(
+            component(
+              id = "invoice-list",
+              type = UiComponentType.LIST,
+              props = mapOf("source" to "invoices"),
+            ),
+          ),
+      )
+    val viewModel = createViewModel(resolved(components = listOf(card)))
 
     // Act
-    // Boundary: a response without a server message leaves the screen to fall back on the status
-    viewModel.checkConnection()
+    // Normal: the component tree is flattened into UI state without losing its structure
+    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
     assertEquals(
-      ServerConnectionUiState.Connected(status = "ok", message = null),
-      viewModel.uiState.value.connection,
+      listOf(
+        UiComponentUiState(
+          id = "billing-summary",
+          kind = UiComponentKindUiState.CARD,
+          label = "Billing",
+          children =
+            listOf(
+              UiComponentUiState(
+                id = "invoice-list",
+                kind = UiComponentKindUiState.LIST,
+                label = "invoices",
+                children = emptyList(),
+              ),
+            ),
+        ),
+      ),
+      loadedSchema(viewModel).components,
     )
   }
 
   @Test
-  fun stateTransitionNonOkStatusExposesUnavailableState() = runTest(dispatcher) {
+  fun normalEachComponentKindTakesItsLabelFromItsOwnProp() = runTest(dispatcher) {
     // Arrange
-    val status = serverStatus(code = "maintenance", message = "try later")
-    val viewModel = createViewModel(FakeServerStatusRepository(Result.success(status)))
+    val components =
+      listOf(
+        component(id = "card", type = UiComponentType.CARD, props = mapOf("title" to "Billing")),
+        component(id = "list", type = UiComponentType.LIST, props = mapOf("source" to "invoices")),
+        component(id = "chart", type = UiComponentType.CHART, props = mapOf("metric" to "requests")),
+        component(id = "button", type = UiComponentType.BUTTON, props = mapOf("label" to "Refund")),
+        component(id = "banner", type = UiComponentType.BANNER, props = mapOf("tone" to "warning")),
+        component(
+          id = "panel",
+          type = UiComponentType.PANEL,
+          props = mapOf("source" to "ui_definitions"),
+        ),
+      )
+    val viewModel = createViewModel(resolved(components = components))
 
     // Act
-    // StateTransition: an unavailable server keeps its status and message in UI state
-    viewModel.checkConnection()
+    // Normal: the prop that carries the display text differs per component type
+    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
     assertEquals(
-      ServerConnectionUiState.Unavailable(status = "maintenance", message = "try later"),
-      viewModel.uiState.value.connection,
+      listOf(
+        UiComponentKindUiState.CARD to "Billing",
+        UiComponentKindUiState.LIST to "invoices",
+        UiComponentKindUiState.CHART to "requests",
+        UiComponentKindUiState.BUTTON to "Refund",
+        UiComponentKindUiState.BANNER to "warning",
+        UiComponentKindUiState.PANEL to "ui_definitions",
+      ),
+      loadedSchema(viewModel).components.map { component -> component.kind to component.label },
     )
+  }
+
+  @Test
+  fun boundaryComponentWithoutItsLabelPropFallsBackToTheComponentId() = runTest(dispatcher) {
+    // Arrange
+    val components = listOf(component(id = "usage-summary", type = UiComponentType.CARD))
+    val viewModel = createViewModel(resolved(components = components))
+
+    // Act
+    // Boundary: props are free-form, so a missing display prop still leaves the component named
+    viewModel.loadUiSchema()
+    advanceUntilIdle()
+
+    // Assert
+    assertEquals("usage-summary", loadedSchema(viewModel).components.single().label)
+  }
+
+  @Test
+  fun normalPresentationHintsAreExposedAsScreenFlags() = runTest(dispatcher) {
+    // Arrange
+    val resolution = resolved(theme = UiTheme.DARK, density = UiDensity.COMPACT)
+    val viewModel = createViewModel(resolution)
+
+    // Act
+    // Normal: theme and density are reduced to the flags the screen applies
+    viewModel.loadUiSchema()
+    advanceUntilIdle()
+
+    // Assert
+    val actual = loadedSchema(viewModel)
+    assertAll(
+      { assertEquals(true, actual.darkTheme) },
+      { assertEquals(true, actual.compact) },
+    )
+  }
+
+  @Test
+  fun stateTransitionUnauthorizedResolutionExposesUnauthorizedState() = runTest(dispatcher) {
+    // Arrange
+    val viewModel = createViewModel(UiSchemaResolution.Unauthorized)
+
+    // Act
+    // StateTransition: a rejected token is shown as its own state instead of a failure
+    viewModel.loadUiSchema()
+    advanceUntilIdle()
+
+    // Assert
+    assertEquals(UiSchemaUiState.Unauthorized, viewModel.uiState.value.schema)
+  }
+
+  @Test
+  fun stateTransitionSurfaceNotFoundResolutionExposesSurfaceNotFoundState() = runTest(dispatcher) {
+    // Arrange
+    val viewModel = createViewModel(UiSchemaResolution.SurfaceNotFound)
+
+    // Act
+    // StateTransition: an unknown surface is shown as its own state instead of a failure
+    viewModel.loadUiSchema()
+    advanceUntilIdle()
+
+    // Assert
+    assertEquals(UiSchemaUiState.SurfaceNotFound, viewModel.uiState.value.schema)
   }
 
   @Test
   fun stateTransitionRepositoryFailureExposesFailedState() = runTest(dispatcher) {
     // Arrange
-    val failure = Result.failure<ServerStatus>(IOException("offline"))
-    val viewModel = createViewModel(FakeServerStatusRepository(failure))
+    val failure = Result.failure<UiSchemaResolution>(IOException("offline"))
+    val viewModel = MainViewModel(FakeUiSchemaRepository(failure))
 
     // Act
     // StateTransition: a failed request is exposed as the failed state
-    viewModel.checkConnection()
+    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
-    assertEquals(ServerConnectionUiState.Failed, viewModel.uiState.value.connection)
+    assertEquals(UiSchemaUiState.Failed, viewModel.uiState.value.schema)
   }
 
   @Test
-  fun interactionCheckWhileCheckingSkipsDuplicateRequest() = runTest(dispatcher) {
+  fun interactionLoadWhileLoadingSkipsDuplicateRequest() = runTest(dispatcher) {
     // Arrange
-    val repository = mockRepositoryReturning(Result.success(okStatus()))
-    val viewModel = createViewModel(repository)
+    val repository = mockRepositoryReturning(resolved())
+    val viewModel = MainViewModel(repository)
 
     // Act
-    // Interaction: a request started while checking does not reach the repository twice
-    viewModel.checkConnection()
-    viewModel.checkConnection()
+    // Interaction: a request started while loading does not reach the repository twice
+    viewModel.loadUiSchema()
+    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
-    coVerify(exactly = 1) { repository.getServerStatus() }
+    coVerify(exactly = 1) { repository.getUiSchema(SurfaceId.DASHBOARD) }
   }
 
   @Test
-  fun interactionCheckAfterCompletionRequestsAgain() = runTest(dispatcher) {
+  fun interactionLoadAfterCompletionRequestsAgain() = runTest(dispatcher) {
     // Arrange
-    val repository = mockRepositoryReturning(Result.success(okStatus()))
-    val viewModel = createViewModel(repository)
+    val repository = mockRepositoryReturning(resolved())
+    val viewModel = MainViewModel(repository)
 
     // Act
-    // Interaction: the guard only blocks while checking, so a finished check can run again
-    viewModel.checkConnection()
+    // Interaction: the guard only blocks while loading, so a finished load can run again
+    viewModel.loadUiSchema()
     advanceUntilIdle()
-    viewModel.checkConnection()
+    viewModel.loadUiSchema()
     advanceUntilIdle()
 
     // Assert
-    coVerify(exactly = 2) { repository.getServerStatus() }
+    coVerify(exactly = 2) { repository.getUiSchema(SurfaceId.DASHBOARD) }
   }
 
-  private fun createViewModel(repository: ServerStatusRepository): MainViewModel =
-    MainViewModel(CheckServerStatusUseCase(repository))
+  private fun createViewModel(resolution: UiSchemaResolution): MainViewModel =
+    MainViewModel(FakeUiSchemaRepository(Result.success(resolution)))
 
-  private fun mockRepositoryReturning(result: Result<ServerStatus>): ServerStatusRepository {
-    val repository = mockk<ServerStatusRepository>()
-    coEvery { repository.getServerStatus() } returns result
+  private fun mockRepositoryReturning(resolution: UiSchemaResolution): UiSchemaRepository {
+    val repository = mockk<UiSchemaRepository>()
+    coEvery { repository.getUiSchema(SurfaceId.DASHBOARD) } returns Result.success(resolution)
     return repository
   }
 
-  private fun okStatus(): ServerStatus = serverStatus(code = "ok", message = "ready")
+  private fun loadedSchema(viewModel: MainViewModel): UiSchemaUiState.Loaded =
+    viewModel.uiState.value.schema as UiSchemaUiState.Loaded
 
-  private fun serverStatus(code: String, message: String?): ServerStatus =
-    ServerStatus(
-      code = ServerStatusCode(code),
-      message = message?.let { ServerStatusMessage(it) },
+  private fun resolved(
+    theme: UiTheme = UiTheme.LIGHT,
+    density: UiDensity = UiDensity.COMFORTABLE,
+    components: List<UiComponent> = emptyList(),
+  ): UiSchemaResolution.Resolved =
+    UiSchemaResolution.Resolved(
+      UiSchema(
+        surface = SurfaceId.DASHBOARD,
+        version = "2026-06-01",
+        revision = "a1b2c3",
+        theme = theme,
+        density = density,
+        components = components,
+      ),
+    )
+
+  private fun component(
+    id: String,
+    type: UiComponentType,
+    props: Map<String, String> = emptyMap(),
+    children: List<UiComponent> = emptyList(),
+  ): UiComponent =
+    UiComponent(
+      id = UiComponentId(id),
+      type = type,
+      props = props,
+      children = children,
     )
 }
 
-private class FakeServerStatusRepository(
-  private val result: Result<ServerStatus>,
-) : ServerStatusRepository {
-  override suspend fun getServerStatus(): Result<ServerStatus> = result
+private class FakeUiSchemaRepository(
+  private val result: Result<UiSchemaResolution>,
+) : UiSchemaRepository {
+  override suspend fun getUiSchema(surface: SurfaceId): Result<UiSchemaResolution> = result
 }
