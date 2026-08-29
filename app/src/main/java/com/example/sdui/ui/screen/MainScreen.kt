@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.rememberScrollState
@@ -13,6 +14,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -32,7 +34,9 @@ import com.example.sdui.ui.theme.SDUITheme
 @Composable
 fun MainScreen(
   uiState: MainUiState,
+  accountName: String,
   onLoadUiSchema: () -> Unit,
+  onSignOut: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val loaded = uiState.schema as? UiSchemaUiState.Loaded
@@ -56,11 +60,20 @@ fun MainScreen(
           text = stringResource(R.string.app_name),
           style = MaterialTheme.typography.headlineSmall,
         )
-        Button(
-          onClick = onLoadUiSchema,
-          enabled = uiState.schema !is UiSchemaUiState.Loading,
-        ) {
-          Text(stringResource(R.string.load_ui_schema))
+        Text(
+          text = stringResource(R.string.signed_in_as_format, accountName),
+          style = MaterialTheme.typography.labelMedium,
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
+          Button(
+            onClick = onLoadUiSchema,
+            enabled = uiState.schema !is UiSchemaUiState.Loading,
+          ) {
+            Text(stringResource(R.string.load_ui_schema))
+          }
+          OutlinedButton(onClick = onSignOut) {
+            Text(stringResource(R.string.sign_out))
+          }
         }
         UiSchemaContent(schema = uiState.schema, spacing = spacing)
       }
@@ -171,7 +184,9 @@ private val COMPACT_SPACING = 8.dp
 private fun MainScreenPreview() {
   MainScreen(
     uiState = MainUiState(),
+    accountName = "plain@example.onmicrosoft.com",
     onLoadUiSchema = {},
+    onSignOut = {},
   )
 }
 
@@ -211,6 +226,8 @@ private fun MainScreenLoadedPreview() {
               ),
           ),
       ),
+    accountName = "billing@example.onmicrosoft.com",
     onLoadUiSchema = {},
+    onSignOut = {},
   )
 }

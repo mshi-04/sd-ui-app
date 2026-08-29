@@ -25,6 +25,17 @@ task の入力を変えるプロパティを渡すと configuration cache は作
 エミュレーターからホストの `localhost` を指す場合は `10.0.2.2` を使います。
 平文 HTTP は `debug` ビルドだけで許可されます。詳細は [`docs/server-contract.md`](server-contract.md) を参照します。
 
+## 実 API へ向ける
+
+MSAL でサインインして実 API へ接続します。`DEV_OID` / `DEV_ROLES` は指定しません。
+
+```powershell
+.\gradlew.bat installDebug "-PAPI_BASE_URL=https://sdui-api.example.invalid/api/"
+```
+
+要求するスコープは Gradle プロパティ `API_SCOPE` で差し替えられます。
+既定値と Entra ID 側の設定は [`docs/authentication.md`](authentication.md) を正本とします。
+
 ## ローカルサーバーと利用者の指定
 
 サーバー側リポジトリ (`sd-ui-infra`) の `scripts/dev_server.py` は、トークンを検証せず
@@ -38,6 +49,7 @@ seed のスキーマを返します。利用者は `X-Dev-Oid` と `X-Dev-Roles`
   "-PDEV_ROLES=SupportAgent,UiAdmin"
 ```
 
+指定した場合は `Authorization` を送らないため、MSAL のサインインは不要です。
 指定しない場合はヘッダーを送らず、サーバーは権限を持たない利用者として応答します。
 `release` ビルドにはこのヘッダーの送信経路がありません。
 

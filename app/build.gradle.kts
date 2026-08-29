@@ -10,6 +10,9 @@ val apiBaseUrl =
   providers.gradleProperty("API_BASE_URL").orElse("https://example.com/api/").map { url ->
     if (url.endsWith('/')) url else "$url/"
   }
+val apiScope =
+  providers.gradleProperty("API_SCOPE")
+    .orElse("api://33333333-3333-4333-8333-333333333333/UiSchema.Read")
 val devOid = providers.gradleProperty("DEV_OID").orElse("")
 val devRoles = providers.gradleProperty("DEV_ROLES").orElse("")
 
@@ -24,6 +27,7 @@ android {
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.get()}\"")
+        buildConfigField("String", "API_SCOPE", "\"${apiScope.get()}\"")
     }
 
     buildTypes {
@@ -96,6 +100,9 @@ dependencies {
   implementation(libs.retrofit.kotlinx.serialization)
   implementation(libs.kotlinx.serialization.json)
   implementation(libs.okhttp)
+
+  // Authentication
+  implementation(libs.msal)
 
   // Local tests
   testImplementation(libs.junit.jupiter)

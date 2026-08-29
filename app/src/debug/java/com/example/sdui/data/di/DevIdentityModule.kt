@@ -1,6 +1,7 @@
 package com.example.sdui.data.di
 
 import com.example.sdui.BuildConfig
+import com.example.sdui.di.DevIdentityConfigured
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -13,6 +14,11 @@ import okhttp3.Response
 @Module
 @InstallIn(SingletonComponent::class)
 object DevIdentityModule {
+  @Provides
+  @DevIdentityConfigured
+  fun provideDevIdentityConfigured(): Boolean =
+    BuildConfig.DEV_OID.isNotBlank() || BuildConfig.DEV_ROLES.isNotBlank()
+
   @Provides
   @Singleton
   @IntoSet
