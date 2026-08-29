@@ -1,0 +1,4 @@
+interface:
+  display_name: "Data 実装"
+  short_description: "Retrofit API・DTO・mapper・Repository 実装を扱う"
+  default_prompt: "$data-implementation を使い、Data 層の変更対象を判定して実装・検証してください。"

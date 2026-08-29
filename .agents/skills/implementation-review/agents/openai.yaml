@@ -1,0 +1,4 @@
+interface:
+  display_name: "実装レビュー"
+  short_description: "依存方向・責務分離・テスト不足を確認する"
+  default_prompt: "$implementation-review を使い、差分をレビューして docs/review.md の形式で報告してください。"
