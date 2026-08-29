@@ -1,0 +1,4 @@
+interface:
+  display_name: "Domain 実装"
+  short_description: "model・value object・UseCase・Repository interfaceを扱う"
+  default_prompt: "$domain-implementation を使い、Domain 層の変更対象を判定して実装・検証してください。"
