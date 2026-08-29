@@ -9,7 +9,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.example.sdui.data.auth.SignInActivityHolder
-import com.example.sdui.ui.route.SessionRoute
+import com.example.sdui.ui.SdUiApp
 import com.example.sdui.ui.theme.SDUITheme
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
           modifier = Modifier.fillMaxSize(),
           color = MaterialTheme.colorScheme.background,
         ) {
-          SessionRoute()
+          SdUiApp()
         }
       }
     }

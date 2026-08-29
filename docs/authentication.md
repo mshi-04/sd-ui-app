@@ -32,9 +32,9 @@ Entra ID 側のアプリ登録とスコープの正本はサーバー側リポ�
 ## アプリ内の構成
 
 ```
-LoginScreen ── LoginViewModel ── SignInUseCase ─┐
-SessionRoute ─ SessionViewModel ─ RestoreSessionUseCase ─┼─ AuthRepository ── MsalAuthClient
-                                └ SignOutUseCase ────────┘
+LoginScreen ── LoginViewModel ── SignInUseCase ─────┐
+SdUiApp ── AuthViewModel ─┬─ RestoreSessionUseCase ─┼─ AuthRepository ── MsalAuthClient
+  └─ MainRoute            └─ SignOutUseCase ────────┘
 AuthorizationInterceptor ── AccessTokenProvider ─────────── MsalAuthClient
 ```
 
@@ -42,7 +42,8 @@ AuthorizationInterceptor ── AccessTokenProvider ─────────�
   `AuthRepository`、`RestoreSessionUseCase` / `SignInUseCase` / `SignOutUseCase`。MSAL の型は現れません
 - `data/auth`: MSAL を包む `MsalAuthClient`、対話サインインに必要な Activity を保持する `SignInActivityHolder`、
   interceptor 向けの `AccessTokenProvider`
-- `ui`: `SessionRoute` がセッション状態で `LoginRoute` と `MainRoute` を出し分けます
+- `ui`: `SdUiApp` が `AuthViewModel` の認証状態で `LoginRoute` と `MainRoute` を出し分けます。
+  `LoginRoute` は `LoginViewModel` と `LoginScreen` を接続します
 
 `MsalAuthClient` は対話サインイン時に Activity を必要とします。`MainActivity` が composition root として
 `SignInActivityHolder` へ自身を登録し、`data` 層はそこから Activity を取ります。
@@ -50,10 +51,11 @@ AuthorizationInterceptor ── AccessTokenProvider ─────────�
 
 ## 画面の流れ
 
-1. 起動時に `SessionViewModel` が `RestoreSessionUseCase` を呼び、サイレントでトークン取得を試みる
+1. 起動時に `AuthViewModel` が `RestoreSessionUseCase` を呼び、サイレントでトークン取得を試みる
 2. 取得できれば `MainRoute`、できなければ `LoginRoute` を表示する
-   `MainRoute` は表示された時点で UI スキーマの取得を始める
-3. サインイン成功を `LoginRoute` が `SessionRoute` へ伝え、セッションを取り直す
+   `MainRoute` は表示された時点で UI スキーマの取得を始め、再表示時は前回の取得を置き換える
+3. `LoginViewModel` が `SignInUseCase` を呼び、成功すると `LoginRoute` が返されたアカウント名を
+   `AuthViewModel` へ伝える。`AuthViewModel` はセッションを取り直さず、サインイン状態を直接更新する
 4. UI スキーマ取得が 401（`UiSchemaResolution.Unauthorized`）になった場合はサインアウトし、ログイン画面へ戻す
 5. `MainScreen` のサインアウトボタンからも同じ経路でログイン画面へ戻る
 

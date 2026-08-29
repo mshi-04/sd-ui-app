@@ -7,6 +7,7 @@ import com.example.sdui.domain.model.value.AccountId
 import com.example.sdui.domain.model.value.AccountName
 import com.example.sdui.domain.repository.AuthRepository
 import com.example.sdui.domain.usecase.SignInUseCase
+import com.example.sdui.ui.state.LoginUiState
 import com.example.sdui.ui.state.SignInUiState
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -44,11 +45,11 @@ class LoginViewModelTest {
     val viewModel = createViewModel(Result.success(signedIn()))
 
     // Act
-    // Normal: no interactive flow starts until the screen asks for one
-    val actual = viewModel.uiState.value.signIn
+    // Normal: no interactive flow starts until the login screen asks for one
+    val actual = viewModel.uiState.value
 
     // Assert
-    assertEquals(SignInUiState.Idle, actual)
+    assertEquals(LoginUiState(), actual)
   }
 
   @Test
@@ -57,13 +58,16 @@ class LoginViewModelTest {
     val viewModel = createViewModel(Result.success(signedIn()))
 
     // Act & Assert
-    // Flow: the button stays disabled through the interactive flow before it succeeds
+    // Flow: the button stays disabled until the interactive result supplies the account
     viewModel.uiState.test {
-      assertEquals(SignInUiState.Idle, awaitItem().signIn)
+      assertEquals(LoginUiState(), awaitItem())
       viewModel.signIn()
       advanceUntilIdle()
-      assertEquals(SignInUiState.InProgress, awaitItem().signIn)
-      assertEquals(SignInUiState.Succeeded, awaitItem().signIn)
+      assertEquals(LoginUiState(signIn = SignInUiState.InProgress), awaitItem())
+      assertEquals(
+        LoginUiState(signIn = SignInUiState.Succeeded(ACCOUNT_NAME)),
+        awaitItem(),
+      )
     }
   }
 
@@ -112,11 +116,23 @@ class LoginViewModelTest {
     coVerify(exactly = 1) { repository.signIn() }
   }
 
-  private fun createViewModel(result: Result<AuthSession>): LoginViewModel {
-    val repository = mockk<AuthRepository>()
-    coEvery { repository.signIn() } returns result
-    return createViewModel(repository)
+  @Test
+  fun stateTransitionHandledSuccessReturnsToIdle() = runTest(dispatcher) {
+    // Arrange
+    val viewModel = createViewModel(Result.success(signedIn()))
+    viewModel.signIn()
+    advanceUntilIdle()
+
+    // Act
+    // StateTransition: handling the result prevents the activity scoped state from firing again
+    viewModel.onSignedInHandled()
+
+    // Assert
+    assertEquals(LoginUiState(), viewModel.uiState.value)
   }
+
+  private fun createViewModel(result: Result<AuthSession>): LoginViewModel =
+    createViewModel(FakeSignInAuthRepository(signInResult = result))
 
   private fun createViewModel(repository: AuthRepository): LoginViewModel =
     LoginViewModel(SignInUseCase(repository))
@@ -125,7 +141,21 @@ class LoginViewModelTest {
     AuthSession.SignedIn(
       AuthAccount(
         id = AccountId("6f2c1d4e-0000-0000-0000-000000000000"),
-        name = AccountName("plain@example.onmicrosoft.com"),
+        name = AccountName(ACCOUNT_NAME),
       ),
     )
+
+  private companion object {
+    const val ACCOUNT_NAME = "plain@example.onmicrosoft.com"
+  }
+}
+
+private class FakeSignInAuthRepository(
+  var signInResult: Result<AuthSession>,
+) : AuthRepository {
+  override suspend fun restoreSession(): Result<AuthSession> = Result.success(AuthSession.SignedOut)
+
+  override suspend fun signIn(): Result<AuthSession> = signInResult
+
+  override suspend fun signOut(): Result<Unit> = Result.success(Unit)
 }

@@ -28,15 +28,22 @@ class LoginViewModel @Inject constructor(
     viewModelScope.launch {
       val signIn =
         signInUseCase().fold(
-          onSuccess = { session ->
-            when (session) {
-              is AuthSession.SignedIn -> SignInUiState.Succeeded
-              AuthSession.SignedOut -> SignInUiState.Failed
-            }
-          },
+          onSuccess = { session -> session.toUiState() },
           onFailure = { SignInUiState.Failed },
         )
       _uiState.update { state -> state.copy(signIn = signIn) }
     }
   }
+
+  fun onSignedInHandled() {
+    if (_uiState.value.signIn !is SignInUiState.Succeeded) return
+
+    _uiState.update { state -> state.copy(signIn = SignInUiState.Idle) }
+  }
+
+  private fun AuthSession.toUiState(): SignInUiState =
+    when (this) {
+      is AuthSession.SignedIn -> SignInUiState.Succeeded(accountName = account.name.value)
+      AuthSession.SignedOut -> SignInUiState.Failed
+    }
 }

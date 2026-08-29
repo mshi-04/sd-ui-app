@@ -20,9 +20,11 @@ import io.mockk.mockk
 import java.io.IOException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
@@ -52,7 +54,8 @@ class MainViewModelTest {
 
     // Act
     // Interaction: the screen shows the resolved schema without waiting for a tap
-    createViewModel(repository)
+    val viewModel = createViewModel(repository)
+    viewModel.onScreenEntered()
     advanceUntilIdle()
 
     // Assert
@@ -276,6 +279,47 @@ class MainViewModelTest {
 
     // Assert
     coVerify(exactly = 2) { repository.getUiSchema(SurfaceId.DASHBOARD) }
+  }
+
+  @Test
+  fun interactionScreenReentryRequestsTheSchemaAgain() = runTest(dispatcher) {
+    // Arrange
+    val repository = mockRepositoryReturning(resolved())
+    val viewModel = createViewModel(repository)
+    viewModel.onScreenEntered()
+    advanceUntilIdle()
+
+    // Act
+    // Interaction: returning after another sign in resolves the schema for the current account
+    viewModel.onScreenEntered()
+    advanceUntilIdle()
+
+    // Assert
+    coVerify(exactly = 2) { repository.getUiSchema(SurfaceId.DASHBOARD) }
+  }
+
+  @Test
+  fun interactionScreenReentryReplacesAnInProgressRequest() = runTest(dispatcher) {
+    // Arrange
+    var requestCount = 0
+    val repository = mockk<UiSchemaRepository>()
+    coEvery { repository.getUiSchema(SurfaceId.DASHBOARD) } coAnswers {
+      requestCount += 1
+      if (requestCount == 1) awaitCancellation()
+      Result.success(resolved())
+    }
+    val viewModel = createViewModel(repository)
+    viewModel.onScreenEntered()
+    runCurrent()
+
+    // Act
+    // Interaction: a new account replaces the previous account's unfinished request
+    viewModel.onScreenEntered()
+    advanceUntilIdle()
+
+    // Assert
+    coVerify(exactly = 2) { repository.getUiSchema(SurfaceId.DASHBOARD) }
+    assertEquals("a1b2c3", loadedSchema(viewModel).revision)
   }
 
   private fun createViewModel(resolution: UiSchemaResolution): MainViewModel =

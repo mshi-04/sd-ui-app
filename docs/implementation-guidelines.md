@@ -34,7 +34,7 @@
 
 ## Navigation
 
-- 現在は Navigation Compose を導入しておらず、`SessionRoute` がサインイン状態で
+- 現在は Navigation Compose を導入しておらず、`SdUiApp` が認証状態で
   `LoginRoute` と `MainRoute` を出し分ける構成
 - 画面が増えて遷移が必要になった時点で Navigation Compose の導入を提案する
 - 画面追加時は route 名、引数、戻る挙動を明確にする

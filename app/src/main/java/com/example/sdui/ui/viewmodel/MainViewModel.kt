@@ -15,6 +15,7 @@ import com.example.sdui.ui.state.UiComponentUiState
 import com.example.sdui.ui.state.UiSchemaUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,8 +29,19 @@ class MainViewModel @Inject constructor(
 ) : ViewModel() {
   private val _uiState = MutableStateFlow(MainUiState(apiBaseUrl = apiBaseUrl))
   val uiState: StateFlow<MainUiState> = _uiState.asStateFlow()
+  private var requestJob: Job? = null
+  private var hasEnteredScreen = false
 
   init {
+    requestUiSchema()
+  }
+
+  fun onScreenEntered() {
+    if (!hasEnteredScreen) {
+      hasEnteredScreen = true
+      return
+    }
+
     requestUiSchema()
   }
 
@@ -40,15 +52,17 @@ class MainViewModel @Inject constructor(
   }
 
   private fun requestUiSchema() {
+    requestJob?.cancel()
     _uiState.update { state -> state.copy(schema = UiSchemaUiState.Loading) }
-    viewModelScope.launch {
-      val schema =
-        loadUiSchemaUseCase().fold(
-          onSuccess = { resolution -> resolution.toUiState() },
-          onFailure = { UiSchemaUiState.Failed },
-        )
-      _uiState.update { state -> state.copy(schema = schema) }
-    }
+    requestJob =
+      viewModelScope.launch {
+        val schema =
+          loadUiSchemaUseCase().fold(
+            onSuccess = { resolution -> resolution.toUiState() },
+            onFailure = { UiSchemaUiState.Failed },
+          )
+        _uiState.update { state -> state.copy(schema = schema) }
+      }
   }
 
   private fun UiSchemaResolution.toUiState(): UiSchemaUiState =

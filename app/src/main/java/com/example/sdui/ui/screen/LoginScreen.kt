@@ -60,7 +60,7 @@ private fun SignInStatus(signIn: SignInUiState) {
         color = MaterialTheme.colorScheme.error,
         textAlign = TextAlign.Center,
       )
-    SignInUiState.Idle, SignInUiState.Succeeded -> Unit
+    SignInUiState.Idle, is SignInUiState.Succeeded -> Unit
   }
 }
 

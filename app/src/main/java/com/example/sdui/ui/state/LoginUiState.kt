@@ -9,7 +9,9 @@ sealed interface SignInUiState {
 
   data object InProgress : SignInUiState
 
-  data object Succeeded : SignInUiState
+  data class Succeeded(
+    val accountName: String,
+  ) : SignInUiState
 
   data object Failed : SignInUiState
 }

@@ -103,7 +103,7 @@ SD UI は、サーバーと接続する Android クライアントです。
 以下は未導入です。実装済みとして扱わず、必要になった時点で導入を提案します。
 
 - ビルドフレーバー
-- Navigation Compose（ログイン画面とダッシュボードの出し分けは `SessionRoute` の状態分岐で行う）
+- Navigation Compose（`LoginRoute` と `MainRoute` の出し分けは `SdUiApp` の認証状態分岐で行う）
 - ローカル DB / 永続化（Room、DataStore。MSAL 自身のトークンキャッシュは除く）
 - release ビルド用の redirect URI 登録
 - 静的解析（ktlint、detekt、Android Lint の運用設定）

@@ -12,14 +12,15 @@ import com.example.sdui.ui.viewmodel.LoginViewModel
 
 @Composable
 fun LoginRoute(
-  onSignedIn: () -> Unit,
+  onSignedIn: (String) -> Boolean,
   modifier: Modifier = Modifier,
   viewModel: LoginViewModel = hiltViewModel(),
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
   LaunchedEffect(uiState.signIn) {
-    if (uiState.signIn is SignInUiState.Succeeded) onSignedIn()
+    val signedIn = uiState.signIn as? SignInUiState.Succeeded ?: return@LaunchedEffect
+    if (onSignedIn(signedIn.accountName)) viewModel.onSignedInHandled()
   }
 
   LoginScreen(

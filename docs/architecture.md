@@ -23,10 +23,10 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
 型の接尾語だけを根拠に `data` / `type` / `event` などの補助パッケージを増やしません。
 
 - `ui`: Compose 画面、ViewModel、UI state
+  - `SdUiApp`: `AuthViewModel` の認証状態を収集し、復元中画面、`LoginRoute`、`MainRoute` を出し分けるアプリレベルの entry
   - `route`: ViewModel と画面を接続し、`collectAsStateWithLifecycle()` で state を収集する `XxxRoute`。
-    `SessionRoute` はサインイン状態で `LoginRoute` と `MainRoute` を出し分ける
   - `screen`: state と callback を受け取る `XxxScreen`。メニュー開閉など短命な UI element state は保持してよい
-  - `viewmodel`: 画面ごとの `XxxViewModel`
+  - `viewmodel`: 画面ごとの `XxxViewModel` と、アプリレベルの認証状態を持つ `AuthViewModel`
   - `state`: UI state（`XxxUiState`）と、その構成要素となる UI 契約の型
   - `theme`: Compose / Material 3 テーマ
 - `domain`: Android Framework に依存しないビジネスロジック
