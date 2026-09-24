@@ -1,7 +1,7 @@
 package com.example.sdui.data.di
 
+import com.example.sdui.BuildConfig
 import com.example.sdui.data.remote.SdUiApi
-import com.example.sdui.di.ApiBaseUrl
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -30,13 +30,9 @@ object NetworkModule {
 
   @Provides
   @Singleton
-  fun provideRetrofit(
-    json: Json,
-    okHttpClient: OkHttpClient,
-    @ApiBaseUrl baseUrl: String,
-  ): Retrofit =
+  fun provideRetrofit(json: Json, okHttpClient: OkHttpClient): Retrofit =
     Retrofit.Builder()
-      .baseUrl(baseUrl)
+      .baseUrl(BuildConfig.API_BASE_URL)
       .client(okHttpClient)
       .addConverterFactory(json.asConverterFactory("application/json".toMediaType()))
       .build()

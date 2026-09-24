@@ -12,7 +12,8 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
 - Domain 層は Android Framework に依存しない
 - UseCase はビジネスルール、複数処理の調停、再利用する操作の境界として置き、単純委譲のためだけには増やさない
 - 依存注入は Hilt で行い、`SdUiApplication` と `di` / `data.di` を composition boundary とする。
-  `di` はアプリ全体の構成値（`BuildConfig` 由来の値など）、`data.di` は data 層の binding を担う
+  `di` はアプリ全体の構成値（`BuildConfig` 由来の値など）、`data.di` は data 層の binding を担う。
+  API のベース URL は注入しない。読む場所は [`docs/server-contract.md`](server-contract.md) を正本とする
 - app entry と DI module は依存を組み立てる composition root のため、配線に必要な具象型を参照できる。
   `MainActivity` が `SignInActivityHolder` へ自身を登録するのはこの位置づけによる
 
@@ -44,7 +45,7 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
     ローカル検証用ヘッダーの有無は `app/src/debug` と `app/src/release` で分ける
 - app 直下
   - `SdUiApplication` / `MainActivity`: アプリと Android 画面の entry point
-  - `di`: アプリ全体の構成値を提供する Hilt module と qualifier（`ApiBaseUrl`、`ApiScope`、`DevIdentityConfigured`）
+  - `di`: アプリ全体の構成値を提供する Hilt module と qualifier（`ApiScope`、`DevIdentityConfigured`）
 
 画面固有の callback 集約、補助 data class、enum、test tag は、
 所有する `route` / `screen` / `viewmodel` / `state` へ置きます。

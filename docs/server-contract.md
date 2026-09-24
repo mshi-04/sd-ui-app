@@ -90,7 +90,8 @@ object、配列、`null` の値は落とします。数値と真偽値は文字�
 - 既定値を持たず、未設定または空の場合はビルドを失敗させる
 - 一時的に差し替える場合だけ Gradle プロパティで上書きする
 - 末尾の `/` はビルド時に補完される
-- 値は `BuildConfig.API_BASE_URL` を経由し、`@ApiBaseUrl` qualifier 付きで注入される
+- 値は注入せず、Retrofit を組み立てる `NetworkModule` と、接続先を UI state へ載せる `MainViewModel` が
+  `BuildConfig.API_BASE_URL` を直接参照する
 
 ```powershell
 .\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/api/"
