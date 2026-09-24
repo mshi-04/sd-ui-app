@@ -15,7 +15,7 @@ SD UI は、サーバーと接続する Android クライアントです。
 - ルートプロジェクト名: `SD UI`
 - メインモジュール: `:app`
 - ビルドフレーバー: なし（`debug` / `release` の build type のみ）
-- minSdk 24 / targetSdk 36 / compileSdk 37.1
+- minSdk 24 / targetSdk 37 / compileSdk 37.1
 
 ## 現在の主な機能
 
