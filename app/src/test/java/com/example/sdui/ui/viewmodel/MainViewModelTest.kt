@@ -1,6 +1,7 @@
 package com.example.sdui.ui.viewmodel
 
 import app.cash.turbine.test
+import com.example.sdui.BuildConfig
 import com.example.sdui.domain.model.UiComponent
 import com.example.sdui.domain.model.UiComponentType
 import com.example.sdui.domain.model.UiDensity
@@ -72,7 +73,7 @@ class MainViewModelTest {
     val actual = viewModel.uiState.value.apiBaseUrl
 
     // Assert
-    assertEquals(API_BASE_URL, actual)
+    assertEquals(BuildConfig.API_BASE_URL, actual)
   }
 
   @Test
@@ -326,10 +327,7 @@ class MainViewModelTest {
     createViewModel(FakeUiSchemaRepository(Result.success(resolution)))
 
   private fun createViewModel(repository: UiSchemaRepository): MainViewModel =
-    MainViewModel(
-      loadUiSchemaUseCase = LoadUiSchemaUseCase(repository),
-      apiBaseUrl = API_BASE_URL,
-    )
+    MainViewModel(loadUiSchemaUseCase = LoadUiSchemaUseCase(repository))
 
   private fun mockRepositoryReturning(resolution: UiSchemaResolution): UiSchemaRepository {
     val repository = mockk<UiSchemaRepository>()
@@ -368,10 +366,6 @@ class MainViewModelTest {
       props = props,
       children = children,
     )
-
-  private companion object {
-    const val API_BASE_URL = "https://sdui-api.example.invalid/api/"
-  }
 }
 
 private class FakeUiSchemaRepository(

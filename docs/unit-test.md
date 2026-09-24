@@ -117,6 +117,8 @@ class SurfaceIdTest {
 - MockK は、依存の呼び出し有無・回数・順序が主な検証対象の場合に使う。内部実装の細部まで固定する mock は避ける
 - suspend 関数の stub は `coEvery`、呼び出しの検証は `coVerify` を使う
 - Retrofit を跨ぐ経路は MockWebServer で実際の JSON 応答と HTTP エラーを再現し、`@AfterEach` で `shutdown()` する
+- MockWebServer へ向ける Retrofit は `NetworkModule.provideRetrofit()` の結果を `newBuilder()` でベース URL だけ差し替えて作り、
+  converter などの構成は本番と共有する
 - cold Flow の先頭値だけが必要なら `first()`、有限 Flow がちょうど1件であることまで検証するなら `single()` を使う。`StateFlow` の現在値は `value`、操作後の emission の順序は Turbine で検証する
 - Turbine は、複数値の順序、未発火、時間制御、キャンセル、長寿命の `StateFlow` を検証するときに使う。中間状態を経由することが検証対象でなければ、`value` の比較で足りる
 - Screen が多くの callback を必須引数に持つ場合は、no-op を既定値にした private ヘルパーをテストクラス内に置き、各テストからは検証したい state だけを渡す

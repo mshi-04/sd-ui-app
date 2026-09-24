@@ -182,7 +182,11 @@ class DefaultUiSchemaRepositoryTest {
   private fun createRepository(): DefaultUiSchemaRepository {
     val json = NetworkModule.provideJson()
     val okHttpClient = NetworkModule.provideOkHttpClient(emptySet())
-    val retrofit = NetworkModule.provideRetrofit(json, okHttpClient, server.url("/").toString())
+    val retrofit =
+      NetworkModule.provideRetrofit(json, okHttpClient)
+        .newBuilder()
+        .baseUrl(server.url("/"))
+        .build()
     val api = NetworkModule.provideSdUiApi(retrofit)
     return DefaultUiSchemaRepository(UiSchemaRemoteDataSource(api))
   }
