@@ -103,7 +103,6 @@ dependencies {
   implementation(libs.retrofit)
   implementation(libs.retrofit.kotlinx.serialization)
   implementation(libs.kotlinx.serialization.json)
-  implementation(libs.okhttp)
 
   // Authentication
   implementation(libs.msal)

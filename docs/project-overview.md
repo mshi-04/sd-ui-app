@@ -74,7 +74,7 @@ SD UI は、サーバーと接続する Android クライアントです。
 ### Network
 
 - Retrofit
-- OkHttp（interceptor は Hilt の multibinding で組み立てる）
+- OkHttp（Retrofit の依存として入り、バージョンは Retrofit に従う。interceptor は Hilt の multibinding で組み立てる）
 - kotlinx.serialization（`Json` converter factory、`ignoreUnknownKeys = true`）
 - ベース URL は Gradle プロパティ `API_BASE_URL` から生成される `BuildConfig.API_BASE_URL` を直接参照（DI では注入しない）
 
