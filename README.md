@@ -62,4 +62,4 @@ JVM 単体テストには JUnit Jupiter、Compose の端末テストには Andro
 .\gradlew.bat :app:testDebugUnitTest
 ```
 
-テストでは MockWebServer による `GET /ui/{surface}` の JSON 変換と条件付き取得、成功・失敗に応じた ViewModel の UI state 遷移を確認します。
+テストでは、fake の Interceptor で応答を返した `GET /ui/{surface}` の JSON 変換と条件付き取得、成功・失敗に応じた ViewModel の UI state 遷移を確認します。

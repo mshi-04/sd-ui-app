@@ -21,7 +21,8 @@ JVM Unit Test で優先してテストするもの:
 - Repository interface を境界にした Domain の振る舞い
 - mapper の変換ルール
 - ViewModel の状態遷移と UI state の生成
-- MockWebServer で完結する Retrofit の JSON 変換と HTTP エラーの扱い
+- fake の Interceptor で応答を返して検証する、Retrofit の JSON 変換とリクエストの組み立て
+- Repository による HTTP 応答の分類
 
 instrumented test で検証するもの:
 
@@ -116,9 +117,11 @@ class SurfaceIdTest {
 - fake は、依存の返却結果を単純に制御したい場合、同じテスト実装を複数箇所で再利用したい場合に使う。テストクラスと同じファイル内の private な実装として置く
 - MockK は、依存の呼び出し有無・回数・順序が主な検証対象の場合に使う。内部実装の細部まで固定する mock は避ける
 - suspend 関数の stub は `coEvery`、呼び出しの検証は `coVerify` を使う
-- Retrofit を跨ぐ経路は MockWebServer で実際の JSON 応答と HTTP エラーを再現し、`@AfterEach` で `shutdown()` する
-- MockWebServer へ向ける Retrofit は `NetworkModule.provideRetrofit()` の結果を `newBuilder()` でベース URL だけ差し替えて作り、
+- Retrofit の API 定義は、サーバーの代わりに応答を返す fake の OkHttp `Interceptor` を `NetworkModule.provideOkHttpClient()` へ渡して検証する。fake は受け取った request を記録し、積んだ応答を順に返す
+- fake の Interceptor を通す Retrofit は `NetworkModule.provideRetrofit()` の結果を `newBuilder()` でベース URL だけ差し替えて作り、
   converter などの構成は本番と共有する
+- API を呼び出す側（remote data source / Repository）は `SdUiApi` を MockK で置き換え、HTTP の結果を `retrofit2.Response` で与える
+- OkHttp の `Interceptor` 単体は `Interceptor.Chain` を MockK で置き換え、`proceed()` に渡された request を検証する
 - cold Flow の先頭値だけが必要なら `first()`、有限 Flow がちょうど1件であることまで検証するなら `single()` を使う。`StateFlow` の現在値は `value`、操作後の emission の順序は Turbine で検証する
 - Turbine は、複数値の順序、未発火、時間制御、キャンセル、長寿命の `StateFlow` を検証するときに使う。中間状態を経由することが検証対象でなければ、`value` の比較で足りる
 - Screen が多くの callback を必須引数に持つ場合は、no-op を既定値にした private ヘルパーをテストクラス内に置き、各テストからは検証したい state だけを渡す

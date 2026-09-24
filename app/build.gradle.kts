@@ -112,7 +112,6 @@ dependencies {
   testImplementation(libs.junit.jupiter)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.mockk)
-  testImplementation(libs.okhttp.mockwebserver)
   testImplementation(libs.turbine)
   testRuntimeOnly(libs.junit.platform.launcher)
 

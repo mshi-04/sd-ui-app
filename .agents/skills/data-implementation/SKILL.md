@@ -35,7 +35,7 @@ SD UI の data 層で、domain の interface を既存データ源に接続し�
 2. domain interface の期待値とサーバー契約の制約を分けて読む。契約の正本は [`docs/server-contract.md`](../../../docs/server-contract.md)。
 3. reference の観点に沿って実装し、変換は mapper、Android / 通信ライブラリ依存は data 層に閉じる。
 4. 複数の役割クラスに跨る場合は、DTO・mapper・domain interface の整合を確認する。
-5. 振る舞いを JVM Unit Test で押さえる。通信経路は MockWebServer を使う。
+5. 振る舞いを JVM Unit Test で押さえる。API 定義は応答を返す fake の Interceptor、呼び出し側は `SdUiApi` の MockK で検証する。
 6. 変更内容に該当する検証をすべて実行する。Kotlin 変更は `.\gradlew.bat :app:testDebugUnitTest` で検証し、Manifest やリソースへ波及する場合は `.\gradlew.bat :app:lintDebug` を組み合わせる。task 一覧の正本は [`docs/development-setup.md`](../../../docs/development-setup.md)。
 7. 変更内容、実行した task と結果、未実施の検証と理由を簡潔に報告する。
 

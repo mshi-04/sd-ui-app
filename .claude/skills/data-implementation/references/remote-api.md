@@ -20,8 +20,7 @@
 
 ## テスト判断
 
-- MockWebServer で JSON 復号、リクエストの method / path、HTTP エラーを JVM Unit Test で押さえる。
-- `@AfterEach` で `shutdown()` を呼び、サーバーを残さない。
+- サーバーの代わりに応答を返す fake の Interceptor で、JSON 復号、リクエストの method / path / header、HTTP エラーを JVM Unit Test で押さえる。
 
 ## 検証観点
 
