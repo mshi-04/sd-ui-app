@@ -18,7 +18,11 @@ val devRoles = providers.gradleProperty("DEV_ROLES").orElse("")
 
 android {
     namespace = "com.example.sdui"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
     defaultConfig {
         applicationId = "com.example.sdui"
         minSdk = 24

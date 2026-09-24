@@ -5,7 +5,7 @@
 ## 前提
 
 - JDK 17（Gradle の `jvmToolchain` は 17）
-- Android SDK（compileSdk 36 / minSdk 24 / targetSdk 36）
+- Android SDK（compileSdk 37.1 / minSdk 24 / targetSdk 36。SDK Manager で Android SDK Platform 37.1 を導入する）
 - ビルドフレーバーはなく、開発・動作確認は `debug` build type を使う
 - `local.properties` の `sdk.dir` はローカル環境の値のため、コミットしない
 
