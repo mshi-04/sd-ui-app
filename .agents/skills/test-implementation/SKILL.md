@@ -23,7 +23,7 @@ SD UI の変更した振る舞いを、既存の Unit Test / instrumented test �
 
 # 注意事項
 
-- テストの書き方（`runTest` と test dispatcher、AAA、観点 prefix、命名、1振る舞い / 1シナリオ、`assertAll`、fake / MockK / Turbine / MockWebServer の使い分け、instrumented test への振り分け）は `docs/unit-test.md` を正本とする。規約本文はここで複製しない。
+- テストの書き方（`runTest` と test dispatcher、AAA、観点 prefix、命名、1振る舞い / 1シナリオ、`assertAll`、fake / MockK / Turbine の使い分け、instrumented test への振り分け）は `docs/unit-test.md` を正本とする。規約本文はここで複製しない。
 - 既存テストは現行方針へ移行済み。追加・修正するテストも同じ書き方にそろえる。
 - アプリ実装差分全体のレビューは `implementation-review` を優先する。
 - 実装変更に付随するテストは、対応する層の Skill と併用する。

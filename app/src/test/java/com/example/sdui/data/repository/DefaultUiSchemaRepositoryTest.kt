@@ -1,6 +1,6 @@
 package com.example.sdui.data.repository
 
-import com.example.sdui.data.di.NetworkModule
+import com.example.sdui.data.model.UiComponentDto
 import com.example.sdui.data.model.UiSchemaDto
 import com.example.sdui.data.remote.SdUiApi
 import com.example.sdui.data.remote.UiSchemaRemoteDataSource
@@ -12,15 +12,19 @@ import com.example.sdui.domain.model.UiSchemaResolution
 import com.example.sdui.domain.model.UiTheme
 import com.example.sdui.domain.model.value.SurfaceId
 import com.example.sdui.domain.model.value.UiComponentId
+import io.mockk.coEvery
+import io.mockk.coVerify
+import io.mockk.mockk
 import java.io.IOException
 import java.net.HttpURLConnection
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import okhttp3.mockwebserver.SocketPolicy
-import org.junit.jupiter.api.AfterEach
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import okhttp3.Headers.Companion.headersOf
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Test
@@ -28,17 +32,12 @@ import retrofit2.HttpException
 import retrofit2.Response
 
 class DefaultUiSchemaRepositoryTest {
-  private val server = MockWebServer()
-
-  @AfterEach
-  fun tearDown() {
-    server.shutdown()
-  }
+  private val api = mockk<SdUiApi>()
 
   @Test
   fun normalSuccessfulResponseIsMappedToResolvedSchema() = runTest {
     // Arrange
-    enqueueSchema()
+    coEvery { api.getUiSchema(SURFACE, null) } returns schemaResponse()
     val repository = createRepository()
 
     // Act
@@ -52,26 +51,24 @@ class DefaultUiSchemaRepositoryTest {
   @Test
   fun interactionSecondRequestRevalidatesWithTheCachedEtag() = runTest {
     // Arrange
-    enqueueSchema()
-    server.enqueue(MockResponse().setResponseCode(HttpURLConnection.HTTP_NOT_MODIFIED))
+    coEvery { api.getUiSchema(SURFACE, null) } returns schemaResponse()
+    coEvery { api.getUiSchema(SURFACE, ETAG) } returns notModifiedResponse()
     val repository = createRepository()
 
     // Act
     // Interaction: the ETag from the first response is replayed as a conditional request
     repository.getUiSchema(SurfaceId.DASHBOARD)
     repository.getUiSchema(SurfaceId.DASHBOARD)
-    takeRequest()
-    val revalidation = takeRequest()
 
     // Assert
-    assertEquals(ETAG, revalidation.getHeader("If-None-Match"))
+    coVerify(exactly = 1) { api.getUiSchema(SURFACE, ETAG) }
   }
 
   @Test
   fun normalNotModifiedResponseKeepsTheCachedSchema() = runTest {
     // Arrange
-    enqueueSchema()
-    server.enqueue(MockResponse().setResponseCode(HttpURLConnection.HTTP_NOT_MODIFIED))
+    coEvery { api.getUiSchema(SURFACE, null) } returns schemaResponse()
+    coEvery { api.getUiSchema(SURFACE, ETAG) } returns notModifiedResponse()
     val repository = createRepository()
 
     // Act
@@ -86,7 +83,7 @@ class DefaultUiSchemaRepositoryTest {
   @Test
   fun errorNotModifiedWithoutCachedSchemaBecomesFailedResult() = runTest {
     // Arrange
-    server.enqueue(MockResponse().setResponseCode(HttpURLConnection.HTTP_NOT_MODIFIED))
+    coEvery { api.getUiSchema(SURFACE, null) } returns notModifiedResponse()
     val repository = createRepository()
 
     // Act
@@ -100,7 +97,8 @@ class DefaultUiSchemaRepositoryTest {
   @Test
   fun errorRejectedTokenIsReportedAsUnauthorized() = runTest {
     // Arrange
-    server.enqueue(MockResponse().setResponseCode(HttpURLConnection.HTTP_UNAUTHORIZED))
+    coEvery { api.getUiSchema(SURFACE, null) } returns
+      errorResponse(HttpURLConnection.HTTP_UNAUTHORIZED)
     val repository = createRepository()
 
     // Act
@@ -114,7 +112,8 @@ class DefaultUiSchemaRepositoryTest {
   @Test
   fun errorUnknownSurfaceIsReportedAsSurfaceNotFound() = runTest {
     // Arrange
-    server.enqueue(MockResponse().setResponseCode(HttpURLConnection.HTTP_NOT_FOUND))
+    coEvery { api.getUiSchema(SURFACE, null) } returns
+      errorResponse(HttpURLConnection.HTTP_NOT_FOUND)
     val repository = createRepository()
 
     // Act
@@ -128,7 +127,8 @@ class DefaultUiSchemaRepositoryTest {
   @Test
   fun errorUndocumentedStatusBecomesFailedResult() = runTest {
     // Arrange
-    server.enqueue(MockResponse().setResponseCode(HttpURLConnection.HTTP_INTERNAL_ERROR))
+    coEvery { api.getUiSchema(SURFACE, null) } returns
+      errorResponse(HttpURLConnection.HTTP_INTERNAL_ERROR)
     val repository = createRepository()
 
     // Act
@@ -142,7 +142,7 @@ class DefaultUiSchemaRepositoryTest {
   @Test
   fun errorTransportFailureBecomesFailedResult() = runTest {
     // Arrange
-    server.enqueue(MockResponse().setSocketPolicy(SocketPolicy.DISCONNECT_AT_START))
+    coEvery { api.getUiSchema(SURFACE, null) } throws IOException("connection reset")
     val repository = createRepository()
 
     // Act
@@ -156,7 +156,8 @@ class DefaultUiSchemaRepositoryTest {
   @Test
   fun coroutineCancellationIsRethrownInsteadOfBeingFolded() = runTest {
     // Arrange
-    val repository = DefaultUiSchemaRepository(UiSchemaRemoteDataSource(CancellingSdUiApi()))
+    coEvery { api.getUiSchema(SURFACE, null) } throws CancellationException("cancelled")
+    val repository = createRepository()
 
     // Act
     // Coroutine: cancellation is rethrown so the caller is not kept alive by a failed result
@@ -166,30 +167,54 @@ class DefaultUiSchemaRepositoryTest {
     assertInstanceOf(CancellationException::class.java, thrown)
   }
 
-  private fun enqueueSchema() {
-    server.enqueue(
-      MockResponse()
-        .setResponseCode(HttpURLConnection.HTTP_OK)
-        .setHeader("Content-Type", "application/json")
-        .setHeader("ETag", ETAG)
-        .setBody(SCHEMA_JSON),
+  private fun createRepository(): DefaultUiSchemaRepository =
+    DefaultUiSchemaRepository(UiSchemaRemoteDataSource(api))
+
+  private fun schemaResponse(): Response<UiSchemaDto> =
+    Response.success(schemaDto(), headersOf("ETag", ETAG))
+
+  // Retrofit only accepts a 304 through the raw-response overload; Response.error(code, body) requires 400+
+  private fun notModifiedResponse(): Response<UiSchemaDto> =
+    Response.error(
+      "".toResponseBody(),
+      okhttp3.Response.Builder()
+        .request(Request.Builder().url(REQUEST_URL).build())
+        .protocol(Protocol.HTTP_1_1)
+        .code(HttpURLConnection.HTTP_NOT_MODIFIED)
+        .message("Not Modified")
+        .build(),
     )
-  }
 
-  private fun takeRequest() =
-    requireNotNull(server.takeRequest(TAKE_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+  private fun errorResponse(code: Int): Response<UiSchemaDto> =
+    Response.error(code, "".toResponseBody())
 
-  private fun createRepository(): DefaultUiSchemaRepository {
-    val json = NetworkModule.provideJson()
-    val okHttpClient = NetworkModule.provideOkHttpClient(emptySet())
-    val retrofit =
-      NetworkModule.provideRetrofit(json, okHttpClient)
-        .newBuilder()
-        .baseUrl(server.url("/"))
-        .build()
-    val api = NetworkModule.provideSdUiApi(retrofit)
-    return DefaultUiSchemaRepository(UiSchemaRemoteDataSource(api))
-  }
+  private fun schemaDto(): UiSchemaDto =
+    UiSchemaDto(
+      surface = "dashboard",
+      version = "2026-06-01",
+      revision = "a1b2c3",
+      theme = "dark",
+      density = "compact",
+      components =
+        listOf(
+          UiComponentDto(
+            id = "billing-summary",
+            type = "Card",
+            props = buildJsonObject {
+              put("title", "Billing")
+              put("span", 6)
+            },
+            children =
+              listOf(
+                UiComponentDto(
+                  id = "invoice-list",
+                  type = "List",
+                  props = buildJsonObject { put("source", "invoices") },
+                ),
+              ),
+          ),
+        ),
+    )
 
   private fun expectedSchema(): UiSchema =
     UiSchema(
@@ -218,18 +243,8 @@ class DefaultUiSchemaRepositoryTest {
     )
 
   private companion object {
+    const val SURFACE = "dashboard"
     const val ETAG = "\"a1b2c3d4\""
-    const val TAKE_REQUEST_TIMEOUT_SECONDS = 1L
-    const val SCHEMA_JSON =
-      """{"surface":"dashboard","version":"2026-06-01","revision":"a1b2c3",""" +
-        """"theme":"dark","density":"compact","components":[""" +
-        """{"id":"billing-summary","type":"Card","props":{"title":"Billing","span":6},""" +
-        """"children":[{"id":"invoice-list","type":"List",""" +
-        """"props":{"source":"invoices"},"children":[]}]}]}"""
+    const val REQUEST_URL = "http://localhost/ui/dashboard"
   }
-}
-
-private class CancellingSdUiApi : SdUiApi {
-  override suspend fun getUiSchema(surface: String, etag: String?): Response<UiSchemaDto> =
-    throw CancellationException("cancelled")
 }

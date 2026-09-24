@@ -15,7 +15,7 @@ SD UI は、サーバーと接続する Android クライアントです。
 - ルートプロジェクト名: `SD UI`
 - メインモジュール: `:app`
 - ビルドフレーバー: なし（`debug` / `release` の build type のみ）
-- minSdk 24 / targetSdk 36 / compileSdk 36
+- minSdk 24 / targetSdk 37 / compileSdk 37.1
 
 ## 現在の主な機能
 
@@ -74,7 +74,7 @@ SD UI は、サーバーと接続する Android クライアントです。
 ### Network
 
 - Retrofit
-- OkHttp（interceptor は Hilt の multibinding で組み立てる）
+- OkHttp（Retrofit の依存として入り、バージョンは Retrofit に従う。interceptor は Hilt の multibinding で組み立てる）
 - kotlinx.serialization（`Json` converter factory、`ignoreUnknownKeys = true`）
 - ベース URL は Gradle プロパティ `API_BASE_URL` から生成される `BuildConfig.API_BASE_URL` を直接参照（DI では注入しない）
 
@@ -86,7 +86,6 @@ SD UI は、サーバーと接続する Android クライアントです。
 - kotlinx-coroutines-test（`runTest`）
 - MockK（モック / 呼び出しの検証）
 - Turbine（`StateFlow` の emission 順序の検証）
-- OkHttp MockWebServer（Retrofit 経由の JSON 変換と失敗系の検証）
 - JUnit 4 / AndroidX Test / Espresso / Compose UI Test（instrumented test）
 
 テストの方針は [`docs/unit-test.md`](unit-test.md) を正本とします。

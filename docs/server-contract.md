@@ -169,5 +169,5 @@ UiSchemaDto -> UiSchema -> UiSchemaResolution -> UiSchemaUiState
 
 1. `sd-ui-infra` の `docs/client_integration.md` を確認し、本書のエンドポイントと応答の分類を先に更新する
 2. DTO、mapper、domain model、Repository、UI state のどこまで影響するかを判定する
-3. MockWebServer による JVM Unit Test で、成功系・欠損フィールド・条件付き取得・HTTP エラーを押さえる
+3. fake の Interceptor と MockK を使う JVM Unit Test で、成功系・欠損フィールド・条件付き取得・HTTP エラーを押さえる
 4. 表示文言を変える場合は `strings.xml` を更新する

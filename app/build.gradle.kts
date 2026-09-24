@@ -18,11 +18,15 @@ val devRoles = providers.gradleProperty("DEV_ROLES").orElse("")
 
 android {
     namespace = "com.example.sdui"
-    compileSdk = 36
+    compileSdk {
+        version = release(37) {
+            minorApiLevel = 1
+        }
+    }
     defaultConfig {
         applicationId = "com.example.sdui"
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -99,7 +103,6 @@ dependencies {
   implementation(libs.retrofit)
   implementation(libs.retrofit.kotlinx.serialization)
   implementation(libs.kotlinx.serialization.json)
-  implementation(libs.okhttp)
 
   // Authentication
   implementation(libs.msal)
@@ -108,7 +111,6 @@ dependencies {
   testImplementation(libs.junit.jupiter)
   testImplementation(libs.kotlinx.coroutines.test)
   testImplementation(libs.mockk)
-  testImplementation(libs.okhttp.mockwebserver)
   testImplementation(libs.turbine)
   testRuntimeOnly(libs.junit.platform.launcher)
 

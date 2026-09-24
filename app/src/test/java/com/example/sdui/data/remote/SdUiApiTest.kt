@@ -4,14 +4,17 @@ import com.example.sdui.data.di.NetworkModule
 import com.example.sdui.data.model.UiComponentDto
 import com.example.sdui.data.model.UiSchemaDto
 import java.net.HttpURLConnection
-import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import okhttp3.mockwebserver.MockResponse
-import okhttp3.mockwebserver.MockWebServer
-import org.junit.jupiter.api.AfterEach
+import okhttp3.Headers
+import okhttp3.Headers.Companion.headersOf
+import okhttp3.Interceptor
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Assertions.assertAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
@@ -20,12 +23,7 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
 class SdUiApiTest {
-  private val server = MockWebServer()
-
-  @AfterEach
-  fun tearDown() {
-    server.shutdown()
-  }
+  private val server = FakeServerInterceptor()
 
   @Test
   fun normalUiSchemaResponseIsDeserialized() = runTest {
@@ -120,7 +118,7 @@ class SdUiApiTest {
     // Assert
     assertAll(
       { assertEquals("GET", request.method) },
-      { assertEquals("/ui/dashboard", request.path) },
+      { assertEquals("/ui/dashboard", request.url.encodedPath) },
     )
   }
 
@@ -136,7 +134,7 @@ class SdUiApiTest {
     val request = takeRequest()
 
     // Assert
-    assertEquals(ETAG, request.getHeader("If-None-Match"))
+    assertEquals(ETAG, request.header("If-None-Match"))
   }
 
   @Test
@@ -151,13 +149,13 @@ class SdUiApiTest {
     val request = takeRequest()
 
     // Assert
-    assertNull(request.getHeader("If-None-Match"))
+    assertNull(request.header("If-None-Match"))
   }
 
   @Test
   fun boundaryNotModifiedResponseCarriesNoBody() = runTest {
     // Arrange
-    server.enqueue(MockResponse().setResponseCode(HttpURLConnection.HTTP_NOT_MODIFIED))
+    server.enqueue(HttpURLConnection.HTTP_NOT_MODIFIED)
     val api = createApi()
 
     // Act
@@ -175,9 +173,8 @@ class SdUiApiTest {
   fun errorRejectedRequestIsReportedAsUnsuccessfulResponse() = runTest {
     // Arrange
     server.enqueue(
-      MockResponse()
-        .setResponseCode(HttpURLConnection.HTTP_UNAUTHORIZED)
-        .setBody("""{"error":{"code":"unauthorized"}}"""),
+      code = HttpURLConnection.HTTP_UNAUTHORIZED,
+      body = """{"error":{"code":"unauthorized"}}""",
     )
     val api = createApi()
 
@@ -208,23 +205,21 @@ class SdUiApiTest {
 
   private fun enqueueJson(body: String) {
     server.enqueue(
-      MockResponse()
-        .setResponseCode(HttpURLConnection.HTTP_OK)
-        .setHeader("Content-Type", "application/json")
-        .setBody(body),
+      code = HttpURLConnection.HTTP_OK,
+      body = body,
+      headers = headersOf("Content-Type", "application/json"),
     )
   }
 
-  private fun takeRequest() =
-    requireNotNull(server.takeRequest(TAKE_REQUEST_TIMEOUT_SECONDS, TimeUnit.SECONDS))
+  private fun takeRequest(): Request = server.recordedRequests.single()
 
   private fun createApi(): SdUiApi {
     val json = NetworkModule.provideJson()
-    val okHttpClient = NetworkModule.provideOkHttpClient(emptySet())
+    val okHttpClient = NetworkModule.provideOkHttpClient(setOf(server))
     val retrofit =
       NetworkModule.provideRetrofit(json, okHttpClient)
         .newBuilder()
-        .baseUrl(server.url("/"))
+        .baseUrl(BASE_URL)
         .build()
     return NetworkModule.provideSdUiApi(retrofit)
   }
@@ -232,12 +227,36 @@ class SdUiApiTest {
   private companion object {
     const val SURFACE = "dashboard"
     const val ETAG = "\"a1b2c3d4\""
-    const val TAKE_REQUEST_TIMEOUT_SECONDS = 1L
+    const val BASE_URL = "http://localhost/"
     const val SCHEMA_JSON =
       """{"surface":"dashboard","version":"2026-06-01","revision":"a1b2c3",""" +
         """"theme":"dark","density":"compact","components":[""" +
         """{"id":"billing-summary","type":"Card","props":{"title":"Billing","span":6},""" +
         """"children":[{"id":"invoice-list","type":"List",""" +
         """"props":{"source":"invoices"},"children":[]}]}]}"""
+  }
+}
+
+private class FakeServerInterceptor : Interceptor {
+  private val responses = ArrayDeque<(Request) -> Response>()
+  val recordedRequests = mutableListOf<Request>()
+
+  fun enqueue(code: Int, body: String = "", headers: Headers = headersOf()) {
+    responses.addLast { request ->
+      Response.Builder()
+        .request(request)
+        .protocol(Protocol.HTTP_1_1)
+        .code(code)
+        .message("HTTP $code")
+        .headers(headers)
+        .body(body.toResponseBody())
+        .build()
+    }
+  }
+
+  override fun intercept(chain: Interceptor.Chain): Response {
+    val request = chain.request()
+    recordedRequests += request
+    return responses.removeFirst()(request)
   }
 }

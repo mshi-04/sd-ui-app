@@ -18,7 +18,7 @@ domain の Repository interface を既存データ源に接続し、実装詳細
 
 ## テスト判断
 
-- 振る舞いは JVM Unit Test を基本にし、通信を跨ぐ経路は MockWebServer で再現する。
+- 振る舞いは JVM Unit Test を基本にし、`SdUiApi` を MockK で置き換えて HTTP の結果を `retrofit2.Response` で与える。
 
 ## 検証観点
 
