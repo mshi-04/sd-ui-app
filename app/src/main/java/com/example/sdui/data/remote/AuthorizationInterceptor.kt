@@ -1,19 +1,15 @@
 package com.example.sdui.data.remote
 
 import com.example.sdui.data.auth.AccessTokenProvider
-import com.example.sdui.di.DevIdentityConfigured
 import javax.inject.Inject
 import okhttp3.Interceptor
 import okhttp3.Response
 
 class AuthorizationInterceptor @Inject constructor(
-  @param:DevIdentityConfigured private val devIdentityConfigured: Boolean,
   private val accessTokenProvider: AccessTokenProvider,
 ) : Interceptor {
   override fun intercept(chain: Interceptor.Chain): Response {
     val request = chain.request()
-    if (devIdentityConfigured) return chain.proceed(request)
-
     val accessToken = accessTokenProvider.accessTokenOrNull() ?: return chain.proceed(request)
     return chain.proceed(
       request.newBuilder()

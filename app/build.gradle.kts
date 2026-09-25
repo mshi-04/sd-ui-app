@@ -13,8 +13,6 @@ fun requiredProperty(name: String): String =
 
 val apiBaseUrl = requiredProperty("API_BASE_URL").trimEnd('/') + "/"
 val apiScope = requiredProperty("API_SCOPE")
-val devOid = providers.gradleProperty("DEV_OID").orElse("")
-val devRoles = providers.gradleProperty("DEV_ROLES").orElse("")
 
 android {
     namespace = "com.example.sdui"
@@ -35,10 +33,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            buildConfigField("String", "DEV_OID", "\"${devOid.get()}\"")
-            buildConfigField("String", "DEV_ROLES", "\"${devRoles.get()}\"")
-        }
         release {
             isMinifyEnabled = false
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

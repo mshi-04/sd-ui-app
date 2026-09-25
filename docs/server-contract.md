@@ -104,20 +104,6 @@ object、配列、`null` の値は落とします。数値と真偽値は文字�
 `debug` ビルドだけがローカル開発向けの平文 HTTP 通信を許可します（`app/src/debug/AndroidManifest.xml`）。
 `release` ビルドでは許可しません。
 
-## ローカル検証時の利用者切り替え
-
-`sd-ui-infra` のローカルサーバーはトークンを検証せず、ヘッダーで利用者を切り替えます。
-`debug` ビルドだけがこのヘッダーを送ります（`app/src/debug` の `DevIdentityModule`）。
-指定した場合は `Authorization` を送りません。排他の仕組みは [`docs/authentication.md`](authentication.md) を正本とします。
-
-| Gradle プロパティ | 送信ヘッダー | 内容 |
-| --- | --- | --- |
-| `DEV_OID` | `X-Dev-Oid` | アカウント識別子。seed の `userId` と一致すればその profile が適用される |
-| `DEV_ROLES` | `X-Dev-Roles` | app role をカンマ区切りで指定（例 `SupportAgent,UiAdmin`） |
-
-空文字を指定した場合はヘッダーを送りません。`release` ビルドには送信経路がありません。
-コマンド例は [`docs/development-setup.md`](development-setup.md) を参照します。
-
 ## 応答の分類
 
 応答は次の5つに分類し、それぞれ別の UI state へ変換します。

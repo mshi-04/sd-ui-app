@@ -33,7 +33,7 @@ Run ボタンからのビルドにも効きます。既定値は dev の実 API 
 
 ## 実 API へ向ける
 
-MSAL でサインインして実 API へ接続します。`DEV_OID` / `DEV_ROLES` は指定しません。
+MSAL でサインインして実 API へ接続します。
 
 ```powershell
 .\gradlew.bat installDebug "-PAPI_BASE_URL=https://sdui-api.example.invalid/api/"
@@ -42,22 +42,17 @@ MSAL でサインインして実 API へ接続します。`DEV_OID` / `DEV_ROLES
 要求するスコープは Gradle プロパティ `API_SCOPE` で差し替えられます。
 既定値と Entra ID 側の設定は [`docs/authentication.md`](authentication.md) を正本とします。
 
-## ローカルサーバーと利用者の指定
+## ローカルサーバー
 
 サーバー側リポジトリ (`sd-ui-infra`) の `scripts/dev_server.py` は、トークンを検証せず
-seed のスキーマを返します。利用者は `X-Dev-Oid` と `X-Dev-Roles` で切り替えます。
-`debug` ビルドだけが、次の Gradle プロパティの値をこのヘッダーとして送ります。
+seed のスキーマを返します。
 
 ```powershell
-.\gradlew.bat :app:assembleDebug `
-  "-PAPI_BASE_URL=http://10.0.2.2:8080/api/" `
-  "-PDEV_OID=00000000-0000-0000-0000-000000000000" `
-  "-PDEV_ROLES=SupportAgent,UiAdmin"
+.\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/api/"
 ```
 
-指定した場合は `Authorization` を送らないため、MSAL のサインインは不要です。
-指定しない場合はヘッダーを送らず、サーバーは権限を持たない利用者として応答します。
-`release` ビルドにはこのヘッダーの送信経路がありません。
+アプリの画面に入るには MSAL のサインインが必要です。
+サーバーはトークンを見ないため、権限を持たない利用者として `usage-summary` だけを返します。
 
 ## ローカルでの検証
 
