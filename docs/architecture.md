@@ -41,11 +41,10 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
   - `model`: DTO など data 層固有のモデル
   - `mapper`: data model から domain model への変換
   - `repository`: Repository 実装（`DefaultUiSchemaRepository`、`DefaultAuthRepository`）
-  - `di`: OkHttp、Retrofit、Json、API、認証、Repository の Hilt module。
-    ローカル検証用ヘッダーの有無は `app/src/debug` と `app/src/release` で分ける
+  - `di`: OkHttp、Retrofit、Json、API、認証、Repository の Hilt module
 - app 直下
   - `SdUiApplication` / `MainActivity`: アプリと Android 画面の entry point
-  - `di`: アプリ全体の構成値を提供する Hilt module と qualifier（`ApiScope`、`DevIdentityConfigured`）
+  - `di`: アプリ全体の構成値を提供する Hilt module と qualifier（`ApiScope`）
 
 画面固有の callback 集約、補助 data class、enum、test tag は、
 所有する `route` / `screen` / `viewmodel` / `state` へ置きます。

@@ -17,7 +17,7 @@ class AuthorizationInterceptorTest {
   @Test
   fun normalAccessTokenIsSentAsBearerCredentials() {
     // Arrange
-    val interceptor = createInterceptor(devIdentityConfigured = false, accessToken = "token-value")
+    val interceptor = createInterceptor(accessToken = "token-value")
 
     // Act
     // Normal: an available token is attached as bearer credentials
@@ -30,23 +30,10 @@ class AuthorizationInterceptorTest {
   @Test
   fun boundaryMissingAccessTokenLeavesTheRequestUnauthenticated() {
     // Arrange
-    val interceptor = createInterceptor(devIdentityConfigured = false, accessToken = null)
+    val interceptor = createInterceptor(accessToken = null)
 
     // Act
     // Boundary: without a token the server decides, so the request is sent as is
-    val request = interceptAndTakeProceededRequest(interceptor)
-
-    // Assert
-    assertNull(request.header("Authorization"))
-  }
-
-  @Test
-  fun boundaryConfiguredDevIdentitySuppressesTheAuthorizationHeader() {
-    // Arrange
-    val interceptor = createInterceptor(devIdentityConfigured = true, accessToken = "token-value")
-
-    // Act
-    // Boundary: the local mock server is driven by X-Dev headers, so the two are exclusive
     val request = interceptAndTakeProceededRequest(interceptor)
 
     // Assert
@@ -71,14 +58,8 @@ class AuthorizationInterceptorTest {
       .message("OK")
       .build()
 
-  private fun createInterceptor(
-    devIdentityConfigured: Boolean,
-    accessToken: String?,
-  ): AuthorizationInterceptor =
-    AuthorizationInterceptor(
-      devIdentityConfigured = devIdentityConfigured,
-      accessTokenProvider = FakeAccessTokenProvider(accessToken),
-    )
+  private fun createInterceptor(accessToken: String?): AuthorizationInterceptor =
+    AuthorizationInterceptor(accessTokenProvider = FakeAccessTokenProvider(accessToken))
 
   private companion object {
     const val REQUEST_URL = "http://localhost/api/ui/dashboard"

@@ -62,20 +62,8 @@ AuthorizationInterceptor ── AccessTokenProvider ─────────�
 401 は「トークンが無い / 不正 / 期限切れ / scope 不足」を意味します。
 役割を割り当てていないアカウントは 401 ではなく 200 が返り、`usage-summary` だけが表示されます。
 
-## Authorization ヘッダーとローカル検証の排他
-
-`AuthorizationInterceptor` は `@DevIdentityConfigured` が `true` のとき何もしません。
-
-| ビルド | `DEV_OID` / `DEV_ROLES` | 送るもの |
-| --- | --- | --- |
-| debug | 指定あり | `X-Dev-Oid` / `X-Dev-Roles`（`Authorization` は付けない） |
-| debug | 未指定 | `Authorization: Bearer <access token>` |
-| release | — | `Authorization: Bearer <access token>` |
-
-`@DevIdentityConfigured` の provider は `app/src/debug` と `app/src/release` の
-それぞれの `DevIdentityModule` にあります。release には `X-Dev-*` を送る経路自体がありません。
-
-トークンを取得できない場合は `Authorization` を付けずに送り、サーバーの 401 でログイン画面へ戻します。
+`AuthorizationInterceptor` はトークンを取得できない場合 `Authorization` を付けずに送り、
+サーバーの 401 でログイン画面へ戻します。
 
 ## ログに出さないもの
 
@@ -97,7 +85,6 @@ UPN は画面には表示します（サインイン中のアカウントの確�
 ```
 
 接続先は `gradle.properties` の `API_BASE_URL` から入るため、Android Studio の Run ボタンでも同じです。
-`DEV_OID` / `DEV_ROLES` を渡すと `Authorization` を送らなくなるため、実 API の確認では指定しません。
 
 表示取得に失敗した場合は、画面に接続先が出ます。`https://sdui-api.example.invalid/api/`
 以外が出ている場合は、接続先の設定が上書きされています。

@@ -49,9 +49,6 @@ MSAL で Entra ID にサインインし、`Authorization: Bearer` でトーク�
 .\gradlew.bat installDebug "-PAPI_BASE_URL=https://sdui-api.example.invalid/api/"
 ```
 
-ローカルのモックサーバーへ向ける場合は `DEV_OID` / `DEV_ROLES` を渡します。
-指定するとサインイン不要の `X-Dev-*` ヘッダー経路になり、`Authorization` は送りません。
-
 構成値、release 用 redirect URI の扱い、動作確認の手順は [`docs/authentication.md`](docs/authentication.md) を参照します。
 
 ## Test
