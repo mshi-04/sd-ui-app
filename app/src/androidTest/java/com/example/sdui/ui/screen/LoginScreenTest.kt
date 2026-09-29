@@ -9,7 +9,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.example.sdui.R
 import com.example.sdui.ui.state.LoginUiState
-import com.example.sdui.ui.state.SignInUiState
+import com.example.sdui.ui.state.LoginUiStatus
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -32,7 +32,7 @@ class LoginScreenTest {
   fun normalInProgressStateDisablesSignInButton() {
     // Act
     // Normal: the interactive flow owns the screen while it runs
-    setLoginScreen(LoginUiState(signIn = SignInUiState.InProgress))
+    setLoginScreen(LoginUiState(status = LoginUiStatus.IN_PROGRESS))
 
     // Assert
     onText(R.string.sign_in).assertIsNotEnabled()
@@ -42,7 +42,7 @@ class LoginScreenTest {
   fun normalFailedStateShowsFailureMessageAndAllowsRetry() {
     // Act
     // Normal: a failed sign in is reported and the button stays usable
-    setLoginScreen(LoginUiState(signIn = SignInUiState.Failed))
+    setLoginScreen(LoginUiState(status = LoginUiStatus.FAILED))
 
     // Assert
     onText(R.string.sign_in_failed).assertIsDisplayed()

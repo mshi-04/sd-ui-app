@@ -1,11 +1,12 @@
 package com.example.sdui.ui.state
 
-sealed interface AuthUiState {
-  data object Restoring : AuthUiState
+data class AuthUiState(
+  val status: AuthUiStatus = AuthUiStatus.RESTORING,
+  val accountName: String = "",
+)
 
-  data object SignedOut : AuthUiState
-
-  data class SignedIn(
-    val accountName: String,
-  ) : AuthUiState
+enum class AuthUiStatus {
+  RESTORING,
+  SIGNED_OUT,
+  SIGNED_IN,
 }

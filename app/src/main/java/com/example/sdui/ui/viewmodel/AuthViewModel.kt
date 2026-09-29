@@ -6,6 +6,7 @@ import com.example.sdui.domain.model.AuthSession
 import com.example.sdui.domain.usecase.RestoreSessionUseCase
 import com.example.sdui.domain.usecase.SignOutUseCase
 import com.example.sdui.ui.state.AuthUiState
+import com.example.sdui.ui.state.AuthUiStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,7 +19,7 @@ class AuthViewModel @Inject constructor(
   private val restoreSessionUseCase: RestoreSessionUseCase,
   private val signOutUseCase: SignOutUseCase,
 ) : ViewModel() {
-  private val _uiState = MutableStateFlow<AuthUiState>(AuthUiState.Restoring)
+  private val _uiState = MutableStateFlow(AuthUiState())
   val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
   init {
@@ -26,19 +27,19 @@ class AuthViewModel @Inject constructor(
   }
 
   fun onSignedIn(accountName: String): Boolean {
-    if (_uiState.value !is AuthUiState.SignedOut) return false
+    if (_uiState.value.status != AuthUiStatus.SIGNED_OUT) return false
 
-    _uiState.value = AuthUiState.SignedIn(accountName = accountName)
+    _uiState.value = AuthUiState(status = AuthUiStatus.SIGNED_IN, accountName = accountName)
     return true
   }
 
   fun signOut() {
-    if (_uiState.value !is AuthUiState.SignedIn) return
+    if (_uiState.value.status != AuthUiStatus.SIGNED_IN) return
 
-    _uiState.value = AuthUiState.Restoring
+    _uiState.value = AuthUiState(status = AuthUiStatus.RESTORING)
     viewModelScope.launch {
       signOutUseCase()
-      _uiState.value = AuthUiState.SignedOut
+      _uiState.value = AuthUiState(status = AuthUiStatus.SIGNED_OUT)
     }
   }
 
@@ -46,15 +47,18 @@ class AuthViewModel @Inject constructor(
     viewModelScope.launch {
       _uiState.value =
         restoreSessionUseCase().fold(
-          onSuccess = { session -> session.toRestoredUiState() },
-          onFailure = { AuthUiState.SignedOut },
+          onSuccess = { session ->
+            when (session) {
+              is AuthSession.SignedIn ->
+                AuthUiState(
+                  status = AuthUiStatus.SIGNED_IN,
+                  accountName = session.account.name.value,
+                )
+              AuthSession.SignedOut -> AuthUiState(status = AuthUiStatus.SIGNED_OUT)
+            }
+          },
+          onFailure = { AuthUiState(status = AuthUiStatus.SIGNED_OUT) },
         )
     }
   }
-
-  private fun AuthSession.toRestoredUiState(): AuthUiState =
-    when (this) {
-      is AuthSession.SignedIn -> AuthUiState.SignedIn(accountName = account.name.value)
-      AuthSession.SignedOut -> AuthUiState.SignedOut
-    }
 }

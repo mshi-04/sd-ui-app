@@ -8,10 +8,10 @@ import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.example.sdui.R
+import com.example.sdui.ui.model.DashboardUiKind
+import com.example.sdui.ui.model.DashboardUiModel
 import com.example.sdui.ui.state.MainUiState
-import com.example.sdui.ui.state.UiComponentKindUiState
-import com.example.sdui.ui.state.UiComponentUiState
-import com.example.sdui.ui.state.UiSchemaUiState
+import com.example.sdui.ui.state.MainUiStatus
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -23,7 +23,7 @@ class MainScreenTest {
   fun normalLoadingStateDisablesTheReloadButton() {
     // Act
     // Normal: the screen loads on its own, so reloading is blocked while a request is in flight
-    setMainScreen(MainUiState(schema = UiSchemaUiState.Loading))
+    setMainScreen(MainUiState(status = MainUiStatus.LOADING))
 
     // Assert
     onText(R.string.load_ui_schema).assertIsNotEnabled()
@@ -57,15 +57,15 @@ class MainScreenTest {
   fun normalLoadedSchemaShowsNestedComponentLabels() {
     // Arrange
     val card =
-      UiComponentUiState(
+      DashboardUiModel(
         id = "billing-summary",
-        kind = UiComponentKindUiState.CARD,
+        kind = DashboardUiKind.CARD,
         label = "Billing",
         children =
           listOf(
-            UiComponentUiState(
+            DashboardUiModel(
               id = "invoice-list",
-              kind = UiComponentKindUiState.LIST,
+              kind = DashboardUiKind.LIST,
               label = "invoices",
               children = emptyList(),
             ),
@@ -74,7 +74,7 @@ class MainScreenTest {
 
     // Act
     // Normal: every level of the resolved component tree is rendered
-    setMainScreen(MainUiState(schema = loaded(components = listOf(card))))
+    setMainScreen(loaded(components = listOf(card)))
 
     // Assert
     composeTestRule.onNodeWithText("Billing").assertIsDisplayed()
@@ -85,16 +85,16 @@ class MainScreenTest {
   fun boundaryButtonComponentIsRenderedWithoutAnAction() {
     // Arrange
     val button =
-      UiComponentUiState(
+      DashboardUiModel(
         id = "refund-action",
-        kind = UiComponentKindUiState.BUTTON,
+        kind = DashboardUiKind.BUTTON,
         label = "Refund",
         children = emptyList(),
       )
 
     // Act
     // Boundary: the contract carries no action, so the rendered control stays inert
-    setMainScreen(MainUiState(schema = loaded(components = listOf(button))))
+    setMainScreen(loaded(components = listOf(button)))
 
     // Assert
     composeTestRule.onNodeWithText("Refund").assertIsNotEnabled()
@@ -128,7 +128,7 @@ class MainScreenTest {
   fun normalLoadedSchemaShowsServerRevision() {
     // Act
     // Normal: the revision of the resolved schema is visible on the screen
-    setMainScreen(MainUiState(schema = loaded()))
+    setMainScreen(loaded())
 
     // Assert
     onText(R.string.ui_schema_revision_format, "a1b2c3").assertIsDisplayed()
@@ -138,7 +138,7 @@ class MainScreenTest {
   fun boundaryLoadedSchemaWithoutComponentsShowsEmptyMessage() {
     // Act
     // Boundary: entitlement filtering can leave a surface with nothing to render
-    setMainScreen(MainUiState(schema = loaded()))
+    setMainScreen(loaded())
 
     // Assert
     onText(R.string.ui_schema_empty).assertIsDisplayed()
@@ -148,7 +148,7 @@ class MainScreenTest {
   fun normalUnauthorizedStateShowsAuthenticationMessage() {
     // Act
     // Normal: a rejected token is reported with a fixed local message
-    setMainScreen(MainUiState(schema = UiSchemaUiState.Unauthorized))
+    setMainScreen(MainUiState(status = MainUiStatus.UNAUTHORIZED))
 
     // Assert
     onText(R.string.ui_schema_unauthorized).assertIsDisplayed()
@@ -158,7 +158,7 @@ class MainScreenTest {
   fun normalSurfaceNotFoundStateShowsUnknownSurfaceMessage() {
     // Act
     // Normal: an unknown surface is reported with a fixed local message
-    setMainScreen(MainUiState(schema = UiSchemaUiState.SurfaceNotFound))
+    setMainScreen(MainUiState(status = MainUiStatus.SURFACE_NOT_FOUND))
 
     // Assert
     onText(R.string.ui_schema_surface_not_found).assertIsDisplayed()
@@ -168,7 +168,7 @@ class MainScreenTest {
   fun normalUnsuccessfulRequestShowsTheConfiguredBaseUrl() {
     // Arrange
     val uiState =
-      MainUiState(apiBaseUrl = API_BASE_URL, schema = UiSchemaUiState.SurfaceNotFound)
+      MainUiState(apiBaseUrl = API_BASE_URL, status = MainUiStatus.SURFACE_NOT_FOUND)
 
     // Act
     // Normal: a wrong host has to be distinguishable from a server side failure
@@ -181,7 +181,7 @@ class MainScreenTest {
   @Test
   fun boundarySuccessfulRequestKeepsTheBaseUrlOffTheScreen() {
     // Arrange
-    val uiState = MainUiState(apiBaseUrl = API_BASE_URL, schema = loaded())
+    val uiState = loaded().copy(apiBaseUrl = API_BASE_URL)
 
     // Act
     // Boundary: the diagnostic caption only belongs on the states that could be a misconfiguration
@@ -195,16 +195,17 @@ class MainScreenTest {
   fun normalFailedStateShowsConnectionFailureMessage() {
     // Act
     // Normal: a transport failure is reported with a fixed local message
-    setMainScreen(MainUiState(schema = UiSchemaUiState.Failed))
+    setMainScreen(MainUiState(status = MainUiStatus.FAILED))
 
     // Assert
     onText(R.string.ui_schema_failed).assertIsDisplayed()
   }
 
   private fun loaded(
-    components: List<UiComponentUiState> = emptyList(),
-  ): UiSchemaUiState.Loaded =
-    UiSchemaUiState.Loaded(
+    components: List<DashboardUiModel> = emptyList(),
+  ): MainUiState =
+    MainUiState(
+      status = MainUiStatus.LOADED,
       revision = "a1b2c3",
       darkTheme = false,
       compact = false,
@@ -212,7 +213,7 @@ class MainScreenTest {
     )
 
   private fun setMainScreen(
-    uiState: MainUiState = MainUiState(schema = loaded()),
+    uiState: MainUiState = loaded(),
     accountName: String = ACCOUNT_NAME,
     onLoadUiSchema: () -> Unit = {},
     onSignOut: () -> Unit = {},

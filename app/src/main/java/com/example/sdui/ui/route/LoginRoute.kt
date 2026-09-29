@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.sdui.ui.screen.LoginScreen
-import com.example.sdui.ui.state.SignInUiState
+import com.example.sdui.ui.state.LoginUiStatus
 import com.example.sdui.ui.viewmodel.LoginViewModel
 
 @Composable
@@ -18,9 +18,9 @@ fun LoginRoute(
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-  LaunchedEffect(uiState.signIn) {
-    val signedIn = uiState.signIn as? SignInUiState.Succeeded ?: return@LaunchedEffect
-    if (onSignedIn(signedIn.accountName)) viewModel.onSignedInHandled()
+  LaunchedEffect(uiState) {
+    if (uiState.status != LoginUiStatus.SUCCEEDED) return@LaunchedEffect
+    if (onSignedIn(uiState.accountName)) viewModel.onSignedInHandled()
   }
 
   LoginScreen(

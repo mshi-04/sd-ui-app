@@ -11,7 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.sdui.ui.screen.MainScreen
-import com.example.sdui.ui.state.UiSchemaUiState
+import com.example.sdui.ui.state.MainUiState
+import com.example.sdui.ui.state.MainUiStatus
 import com.example.sdui.ui.viewmodel.MainViewModel
 
 @SuppressLint("StateFlowValueCalledInComposition")
@@ -30,11 +31,11 @@ fun MainRoute(
     hasEnteredScreen = true
   }
 
-  LaunchedEffect(uiState.schema, hasEnteredScreen) {
+  LaunchedEffect(uiState.status, hasEnteredScreen) {
     if (
       hasEnteredScreen &&
-        uiState.schema is UiSchemaUiState.Unauthorized &&
-        viewModel.uiState.value.schema is UiSchemaUiState.Unauthorized
+        uiState.status == MainUiStatus.UNAUTHORIZED &&
+        viewModel.uiState.value.status == MainUiStatus.UNAUTHORIZED
     ) {
       onSessionEnd()
     }
@@ -42,8 +43,8 @@ fun MainRoute(
 
   val currentUiState = viewModel.uiState.value
   val displayedUiState =
-    if (!hasEnteredScreen || currentUiState.schema is UiSchemaUiState.Loading) {
-      uiState.copy(schema = UiSchemaUiState.Loading)
+    if (!hasEnteredScreen || currentUiState.status == MainUiStatus.LOADING) {
+      MainUiState(apiBaseUrl = uiState.apiBaseUrl)
     } else {
       uiState
     }

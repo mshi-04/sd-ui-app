@@ -8,7 +8,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.sdui.ui.route.LoginRoute
 import com.example.sdui.ui.route.MainRoute
 import com.example.sdui.ui.screen.AuthRestoringScreen
-import com.example.sdui.ui.state.AuthUiState
+import com.example.sdui.ui.state.AuthUiStatus
 import com.example.sdui.ui.viewmodel.AuthViewModel
 
 @Composable
@@ -18,16 +18,16 @@ fun SdUiApp(
 ) {
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-  when (val auth = uiState) {
-    AuthUiState.Restoring -> AuthRestoringScreen(modifier = modifier)
-    AuthUiState.SignedOut ->
+  when (uiState.status) {
+    AuthUiStatus.RESTORING -> AuthRestoringScreen(modifier = modifier)
+    AuthUiStatus.SIGNED_OUT ->
       LoginRoute(
         onSignedIn = viewModel::onSignedIn,
         modifier = modifier,
       )
-    is AuthUiState.SignedIn ->
+    AuthUiStatus.SIGNED_IN ->
       MainRoute(
-        accountName = auth.accountName,
+        accountName = uiState.accountName,
         onSessionEnd = viewModel::signOut,
         modifier = modifier,
       )

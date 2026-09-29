@@ -23,7 +23,7 @@
 - 関数名は英語にする
 - インデントは半角スペース2つにする（既存ファイルの記述にそろえる）
 - Route、Screen、ViewModel、主要な UiState は、役割と同名の独立ファイルを基本とする
-- UI state / result / event は、それぞれ `XxxUiState` / `XxxUiResult` / `XxxUiEvent` と命名する
+- UI state / status / model / result / event は、それぞれ `XxxUiState` / `XxxUiStatus` / `XxxUiModel` / `XxxUiResult` / `XxxUiEvent` と命名する
 - 同じ責務を構成する小型の class / interface / object / enum は、ファイルが読みやすい範囲で関連する所有者ファイルへトップレベル宣言としてまとめてよい。300行程度を分割検討の目安とするが、機械的な上限にはしない
 - sealed hierarchy の直接の子型や、親に強く従属する private 実装型は親型へネストしてよい
 - ガード条件は早期リターンで扱い、ネストを深くしない

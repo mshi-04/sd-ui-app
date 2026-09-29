@@ -9,17 +9,16 @@ import com.example.sdui.domain.model.UiDensity
 import com.example.sdui.domain.model.UiSchemaResolution
 import com.example.sdui.domain.model.UiTheme
 import com.example.sdui.domain.usecase.LoadUiSchemaUseCase
+import com.example.sdui.ui.model.DashboardUiKind
+import com.example.sdui.ui.model.DashboardUiModel
 import com.example.sdui.ui.state.MainUiState
-import com.example.sdui.ui.state.UiComponentKindUiState
-import com.example.sdui.ui.state.UiComponentUiState
-import com.example.sdui.ui.state.UiSchemaUiState
+import com.example.sdui.ui.state.MainUiStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -45,65 +44,71 @@ class MainViewModel @Inject constructor(
   }
 
   fun loadUiSchema() {
-    if (_uiState.value.schema is UiSchemaUiState.Loading) return
+    if (_uiState.value.status == MainUiStatus.LOADING) return
 
     requestUiSchema()
   }
 
   private fun requestUiSchema() {
     requestJob?.cancel()
-    _uiState.update { state -> state.copy(schema = UiSchemaUiState.Loading) }
+    _uiState.value = MainUiState(apiBaseUrl = BuildConfig.API_BASE_URL)
     requestJob =
       viewModelScope.launch {
-        val schema =
+        _uiState.value =
           loadUiSchemaUseCase().fold(
-            onSuccess = { resolution -> resolution.toUiState() },
-            onFailure = { UiSchemaUiState.Failed },
+            onSuccess = { resolution ->
+              when (resolution) {
+                is UiSchemaResolution.Resolved ->
+                  MainUiState(
+                    apiBaseUrl = BuildConfig.API_BASE_URL,
+                    status = MainUiStatus.LOADED,
+                    revision = resolution.schema.revision,
+                    darkTheme = resolution.schema.theme == UiTheme.DARK,
+                    compact = resolution.schema.density == UiDensity.COMPACT,
+                    components = resolution.schema.components.map(::dashboardUiModel),
+                  )
+                UiSchemaResolution.Unauthorized ->
+                  MainUiState(
+                    apiBaseUrl = BuildConfig.API_BASE_URL,
+                    status = MainUiStatus.UNAUTHORIZED,
+                  )
+                UiSchemaResolution.SurfaceNotFound ->
+                  MainUiState(
+                    apiBaseUrl = BuildConfig.API_BASE_URL,
+                    status = MainUiStatus.SURFACE_NOT_FOUND,
+                  )
+              }
+            },
+            onFailure = {
+              MainUiState(apiBaseUrl = BuildConfig.API_BASE_URL, status = MainUiStatus.FAILED)
+            },
           )
-        _uiState.update { state -> state.copy(schema = schema) }
       }
   }
 
-  private fun UiSchemaResolution.toUiState(): UiSchemaUiState =
-    when (this) {
-      is UiSchemaResolution.Resolved ->
-        UiSchemaUiState.Loaded(
-          revision = schema.revision,
-          darkTheme = schema.theme == UiTheme.DARK,
-          compact = schema.density == UiDensity.COMPACT,
-          components = schema.components.map { component -> component.toUiState() },
-        )
-      UiSchemaResolution.Unauthorized -> UiSchemaUiState.Unauthorized
-      UiSchemaResolution.SurfaceNotFound -> UiSchemaUiState.SurfaceNotFound
-    }
-
-  private fun UiComponent.toUiState(): UiComponentUiState =
-    UiComponentUiState(
-      id = id.value,
-      kind = type.toUiState(),
-      label = labelOrNull() ?: id.value,
-      children = children.map { child -> child.toUiState() },
+  private fun dashboardUiModel(component: UiComponent): DashboardUiModel =
+    DashboardUiModel(
+      id = component.id.value,
+      kind =
+        when (component.type) {
+          UiComponentType.CARD -> DashboardUiKind.CARD
+          UiComponentType.LIST -> DashboardUiKind.LIST
+          UiComponentType.CHART -> DashboardUiKind.CHART
+          UiComponentType.BUTTON -> DashboardUiKind.BUTTON
+          UiComponentType.BANNER -> DashboardUiKind.BANNER
+          UiComponentType.PANEL -> DashboardUiKind.PANEL
+        },
+      label =
+        when (component.type) {
+          UiComponentType.CARD -> component.props[TITLE_PROP]
+          UiComponentType.PANEL -> component.props[TITLE_PROP] ?: component.props[SOURCE_PROP]
+          UiComponentType.LIST -> component.props[SOURCE_PROP]
+          UiComponentType.CHART -> component.props[METRIC_PROP]
+          UiComponentType.BUTTON -> component.props[LABEL_PROP]
+          UiComponentType.BANNER -> component.props[TONE_PROP]
+        } ?: component.id.value,
+      children = component.children.map(::dashboardUiModel),
     )
-
-  private fun UiComponent.labelOrNull(): String? =
-    when (type) {
-      UiComponentType.CARD -> props[TITLE_PROP]
-      UiComponentType.PANEL -> props[TITLE_PROP] ?: props[SOURCE_PROP]
-      UiComponentType.LIST -> props[SOURCE_PROP]
-      UiComponentType.CHART -> props[METRIC_PROP]
-      UiComponentType.BUTTON -> props[LABEL_PROP]
-      UiComponentType.BANNER -> props[TONE_PROP]
-    }
-
-  private fun UiComponentType.toUiState(): UiComponentKindUiState =
-    when (this) {
-      UiComponentType.CARD -> UiComponentKindUiState.CARD
-      UiComponentType.LIST -> UiComponentKindUiState.LIST
-      UiComponentType.CHART -> UiComponentKindUiState.CHART
-      UiComponentType.BUTTON -> UiComponentKindUiState.BUTTON
-      UiComponentType.BANNER -> UiComponentKindUiState.BANNER
-      UiComponentType.PANEL -> UiComponentKindUiState.PANEL
-    }
 
   private companion object {
     const val TITLE_PROP = "title"

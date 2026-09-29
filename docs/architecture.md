@@ -28,7 +28,8 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
   - `route`: ViewModel と画面を接続し、`collectAsStateWithLifecycle()` で state を収集する `XxxRoute`。
   - `screen`: state と callback を受け取る `XxxScreen`。メニュー開閉など短命な UI element state は保持してよい
   - `viewmodel`: 画面ごとの `XxxViewModel` と、アプリレベルの認証状態を持つ `AuthViewModel`
-  - `state`: UI state（`XxxUiState`）と、その構成要素となる UI 契約の型
+  - `state`: 画面ごとのフラットな UI state（`XxxUiState`）と、その状態を表す enum（`XxxUiStatus`）
+  - `model`: UI state の部品になる表示用モデル（`DashboardUiModel`）。ViewModel がコンストラクタで直接組み立てる
   - `theme`: Compose / Material 3 テーマ
 - `domain`: Android Framework に依存しないビジネスロジック
   - `model`: ドメインモデル（`UiSchema`、`UiComponent`、`UiSchemaResolution`、`AuthSession`、`AuthAccount`）
@@ -48,7 +49,7 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
 
 画面固有の callback 集約、補助 data class、enum、test tag は、
 所有する `route` / `screen` / `viewmodel` / `state` へ置きます。
-UI state / result / event は、それぞれ `XxxUiState` / `XxxUiResult` / `XxxUiEvent` と命名します。
+UI state / status / model / result / event は、それぞれ `XxxUiState` / `XxxUiStatus` / `XxxUiModel` / `XxxUiResult` / `XxxUiEvent` と命名します。
 複数箇所から参照する契約は主要な役割パッケージ内で独立ファイルにし、
 所有者だけが使う小型型は所有者ファイルへまとめます。
 

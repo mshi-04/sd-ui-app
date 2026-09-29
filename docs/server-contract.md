@@ -97,8 +97,8 @@ object、配列、`null` の値は落とします。数値と真偽値は文字�
 .\gradlew.bat :app:assembleDebug "-PAPI_BASE_URL=http://10.0.2.2:8080/api/"
 ```
 
-画面が表示された時点で取得を始めるため、初期状態は `UiSchemaUiState.Loading` です。
-取得に失敗した状態（`SurfaceNotFound` / `Failed`）では、接続先を画面へ表示します。
+画面が表示された時点で取得を始めるため、初期状態は `MainUiStatus.LOADING` です。
+取得に失敗した状態（`SURFACE_NOT_FOUND` / `FAILED`）では、接続先を画面へ表示します。
 接続先の誤りとサーバー側の不具合を、画面だけで区別できるようにするためです。
 
 `debug` ビルドだけがローカル開発向けの平文 HTTP 通信を許可します（`app/src/debug/AndroidManifest.xml`）。
@@ -108,13 +108,13 @@ object、配列、`null` の値は落とします。数値と真偽値は文字�
 
 応答は次の5つに分類し、それぞれ別の UI state へ変換します。
 
-| 分類 | 条件 | domain 表現 | UI state |
+| 分類 | 条件 | domain 表現 | UI state の status |
 | --- | --- | --- | --- |
-| 解決済み | HTTP 200 | `UiSchemaResolution.Resolved` | `UiSchemaUiState.Loaded` |
-| 変更なし | HTTP 304 | `UiSchemaResolution.Resolved`（保持中のスキーマ） | `UiSchemaUiState.Loaded` |
-| 認証されない | HTTP 401 | `UiSchemaResolution.Unauthorized` | `UiSchemaUiState.Unauthorized` |
-| 未知の surface | HTTP 404 | `UiSchemaResolution.SurfaceNotFound` | `UiSchemaUiState.SurfaceNotFound` |
-| 通信失敗 | その他の HTTP エラー、復号失敗、接続失敗、値オブジェクトの制約違反 | `Result.failure` | `UiSchemaUiState.Failed` |
+| 解決済み | HTTP 200 | `UiSchemaResolution.Resolved` | `MainUiStatus.LOADED` |
+| 変更なし | HTTP 304 | `UiSchemaResolution.Resolved`（保持中のスキーマ） | `MainUiStatus.LOADED` |
+| 認証されない | HTTP 401 | `UiSchemaResolution.Unauthorized` | `MainUiStatus.UNAUTHORIZED` |
+| 未知の surface | HTTP 404 | `UiSchemaResolution.SurfaceNotFound` | `MainUiStatus.SURFACE_NOT_FOUND` |
+| 通信失敗 | その他の HTTP エラー、復号失敗、接続失敗、値オブジェクトの制約違反 | `Result.failure` | `MainUiStatus.FAILED` |
 
 401 と 404 は契約に書かれた結果のため、`Result.failure` ではなく値として扱います。
 
@@ -130,14 +130,14 @@ Repository は surface ごとに直前の `ETag` と解決済みスキーマを�
 ## 変換の経路
 
 ```
-UiSchemaDto -> UiSchema -> UiSchemaResolution -> UiSchemaUiState
+UiSchemaDto -> UiSchema -> UiSchemaResolution -> MainUiState
  (data/model)  (data/mapper)  (data/repository)   (ui/viewmodel)
 ```
 
 - `UiSchemaDto` / `UiComponentDto`: サーバー応答をそのまま写した DTO。`props` は `JsonObject`
 - `UiSchema` / `UiComponent`: 未知 type を除き、`props` を文字列へ寄せた domain model
 - `UiSchemaResolution`: 契約上の結果（解決済み / 認証されない / 未知の surface）を表す sealed interface
-- `UiSchemaUiState`: 画面表示の分岐を表す UI 契約
+- `MainUiState` / `DashboardUiModel`: 画面表示の分岐（`MainUiStatus`）と表示内容を表す UI 契約。ViewModel がコンストラクタで直接組み立てる
 
 エンドポイントやフィールドを増やすときも、この4段の分担を保ちます。
 
