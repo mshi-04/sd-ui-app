@@ -1,22 +1,19 @@
 package com.example.sdui.data.auth
 
-import android.content.Context
-import com.example.sdui.R
 import com.example.sdui.di.ApiScope
 import com.microsoft.identity.client.AcquireTokenSilentParameters
 import com.microsoft.identity.client.AuthenticationCallback
 import com.microsoft.identity.client.IAccount
 import com.microsoft.identity.client.IAuthenticationResult
 import com.microsoft.identity.client.ISingleAccountPublicClientApplication
-import com.microsoft.identity.client.PublicClientApplication
 import com.microsoft.identity.client.SignInParameters
 import com.microsoft.identity.client.exception.MsalException
 import com.microsoft.identity.client.exception.MsalUiRequiredException
-import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -25,18 +22,25 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 
 @Singleton
-class MsalAuthClient @Inject constructor(
-  @param:ApplicationContext private val context: Context,
-  @param:ApiScope private val apiScope: String,
+class MsalAuthClient internal constructor(
+  private val applicationFactory: MsalApplicationFactory,
+  private val apiScope: String,
   private val signInActivityHolder: SignInActivityHolder,
+  private val ioDispatcher: CoroutineDispatcher,
 ) : AccessTokenProvider {
+  @Inject constructor(
+    applicationFactory: MsalApplicationFactory,
+    @ApiScope apiScope: String,
+    signInActivityHolder: SignInActivityHolder,
+  ) : this(applicationFactory, apiScope, signInActivityHolder, Dispatchers.IO)
+
   private val applicationLock = Mutex()
 
   @Volatile
   private var application: ISingleAccountPublicClientApplication? = null
 
   suspend fun restoreSignedInAccount(): MsalAccount? =
-    withContext(Dispatchers.IO) {
+    withContext(ioDispatcher) {
       val client = requireApplication()
       val account = client.currentAccount.currentAccount ?: return@withContext null
       try {
@@ -80,7 +84,7 @@ class MsalAuthClient @Inject constructor(
   }
 
   suspend fun signOut() {
-    withContext(Dispatchers.IO) {
+    withContext(ioDispatcher) {
       val client = requireApplication()
       if (client.currentAccount.currentAccount != null) {
         client.signOut()
@@ -91,7 +95,7 @@ class MsalAuthClient @Inject constructor(
   override fun accessTokenOrNull(): String? = runBlocking { silentAccessTokenOrNull() }
 
   private suspend fun silentAccessTokenOrNull(): String? =
-    withContext(Dispatchers.IO) {
+    withContext(ioDispatcher) {
       try {
         val client = requireApplication()
         val account = client.currentAccount.currentAccount ?: return@withContext null
@@ -106,11 +110,8 @@ class MsalAuthClient @Inject constructor(
 
   private suspend fun requireApplication(): ISingleAccountPublicClientApplication =
     application ?: applicationLock.withLock {
-      application ?: withContext(Dispatchers.IO) {
-        PublicClientApplication.createSingleAccountPublicClientApplication(
-          context,
-          R.raw.msal_config,
-        )
+      application ?: withContext(ioDispatcher) {
+        applicationFactory.create()
       }.also { created -> application = created }
     }
 
