@@ -18,7 +18,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.sdui.R
 import com.example.sdui.ui.state.LoginUiState
-import com.example.sdui.ui.state.SignInUiState
+import com.example.sdui.ui.state.LoginUiStatus
 import com.example.sdui.ui.theme.SDUITheme
 
 @Composable
@@ -42,25 +42,25 @@ fun LoginScreen(
     )
     Button(
       onClick = onSignIn,
-      enabled = uiState.signIn !is SignInUiState.InProgress,
+      enabled = uiState.status != LoginUiStatus.IN_PROGRESS,
     ) {
       Text(stringResource(R.string.sign_in))
     }
-    SignInStatus(signIn = uiState.signIn)
+    SignInStatus(status = uiState.status)
   }
 }
 
 @Composable
-private fun SignInStatus(signIn: SignInUiState) {
-  when (signIn) {
-    SignInUiState.InProgress -> CircularProgressIndicator()
-    SignInUiState.Failed ->
+private fun SignInStatus(status: LoginUiStatus) {
+  when (status) {
+    LoginUiStatus.IN_PROGRESS -> CircularProgressIndicator()
+    LoginUiStatus.FAILED ->
       Text(
         text = stringResource(R.string.sign_in_failed),
         color = MaterialTheme.colorScheme.error,
         textAlign = TextAlign.Center,
       )
-    SignInUiState.Idle, is SignInUiState.Succeeded -> Unit
+    LoginUiStatus.IDLE, LoginUiStatus.SUCCEEDED -> Unit
   }
 }
 
@@ -80,7 +80,7 @@ private fun LoginScreenPreview() {
 private fun LoginScreenFailedPreview() {
   SDUITheme {
     LoginScreen(
-      uiState = LoginUiState(signIn = SignInUiState.Failed),
+      uiState = LoginUiState(status = LoginUiStatus.FAILED),
       onSignIn = {},
     )
   }

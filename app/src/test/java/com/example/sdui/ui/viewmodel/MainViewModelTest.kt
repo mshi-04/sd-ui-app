@@ -12,9 +12,10 @@ import com.example.sdui.domain.model.value.SurfaceId
 import com.example.sdui.domain.model.value.UiComponentId
 import com.example.sdui.domain.repository.UiSchemaRepository
 import com.example.sdui.domain.usecase.LoadUiSchemaUseCase
-import com.example.sdui.ui.state.UiComponentKindUiState
-import com.example.sdui.ui.state.UiComponentUiState
-import com.example.sdui.ui.state.UiSchemaUiState
+import com.example.sdui.ui.model.DashboardUiKind
+import com.example.sdui.ui.model.DashboardUiModel
+import com.example.sdui.ui.state.MainUiState
+import com.example.sdui.ui.state.MainUiStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -84,16 +85,18 @@ class MainViewModelTest {
     // Act & Assert
     // Flow: the screen starts on the loading state and reaches the schema without a tap
     viewModel.uiState.test {
-      assertEquals(UiSchemaUiState.Loading, awaitItem().schema)
+      assertEquals(MainUiState(apiBaseUrl = BuildConfig.API_BASE_URL), awaitItem())
       advanceUntilIdle()
       assertEquals(
-        UiSchemaUiState.Loaded(
+        MainUiState(
+          apiBaseUrl = BuildConfig.API_BASE_URL,
+          status = MainUiStatus.LOADED,
           revision = "a1b2c3",
           darkTheme = false,
           compact = false,
           components = emptyList(),
         ),
-        awaitItem().schema,
+        awaitItem(),
       )
     }
   }
@@ -124,22 +127,22 @@ class MainViewModelTest {
     // Assert
     assertEquals(
       listOf(
-        UiComponentUiState(
+        DashboardUiModel(
           id = "billing-summary",
-          kind = UiComponentKindUiState.CARD,
+          kind = DashboardUiKind.CARD,
           label = "Billing",
           children =
             listOf(
-              UiComponentUiState(
+              DashboardUiModel(
                 id = "invoice-list",
-                kind = UiComponentKindUiState.LIST,
+                kind = DashboardUiKind.LIST,
                 label = "invoices",
                 children = emptyList(),
               ),
             ),
         ),
       ),
-      loadedSchema(viewModel).components,
+      viewModel.uiState.value.components,
     )
   }
 
@@ -168,14 +171,14 @@ class MainViewModelTest {
     // Assert
     assertEquals(
       listOf(
-        UiComponentKindUiState.CARD to "Billing",
-        UiComponentKindUiState.LIST to "invoices",
-        UiComponentKindUiState.CHART to "requests",
-        UiComponentKindUiState.BUTTON to "Refund",
-        UiComponentKindUiState.BANNER to "warning",
-        UiComponentKindUiState.PANEL to "ui_definitions",
+        DashboardUiKind.CARD to "Billing",
+        DashboardUiKind.LIST to "invoices",
+        DashboardUiKind.CHART to "requests",
+        DashboardUiKind.BUTTON to "Refund",
+        DashboardUiKind.BANNER to "warning",
+        DashboardUiKind.PANEL to "ui_definitions",
       ),
-      loadedSchema(viewModel).components.map { component -> component.kind to component.label },
+      viewModel.uiState.value.components.map { component -> component.kind to component.label },
     )
   }
 
@@ -190,7 +193,7 @@ class MainViewModelTest {
     advanceUntilIdle()
 
     // Assert
-    assertEquals("usage-summary", loadedSchema(viewModel).components.single().label)
+    assertEquals("usage-summary", viewModel.uiState.value.components.single().label)
   }
 
   @Test
@@ -204,7 +207,7 @@ class MainViewModelTest {
     advanceUntilIdle()
 
     // Assert
-    val actual = loadedSchema(viewModel)
+    val actual = viewModel.uiState.value
     assertAll(
       { assertEquals(true, actual.darkTheme) },
       { assertEquals(true, actual.compact) },
@@ -221,7 +224,7 @@ class MainViewModelTest {
     advanceUntilIdle()
 
     // Assert
-    assertEquals(UiSchemaUiState.Unauthorized, viewModel.uiState.value.schema)
+    assertEquals(MainUiStatus.UNAUTHORIZED, viewModel.uiState.value.status)
   }
 
   @Test
@@ -234,7 +237,7 @@ class MainViewModelTest {
     advanceUntilIdle()
 
     // Assert
-    assertEquals(UiSchemaUiState.SurfaceNotFound, viewModel.uiState.value.schema)
+    assertEquals(MainUiStatus.SURFACE_NOT_FOUND, viewModel.uiState.value.status)
   }
 
   @Test
@@ -248,7 +251,7 @@ class MainViewModelTest {
     advanceUntilIdle()
 
     // Assert
-    assertEquals(UiSchemaUiState.Failed, viewModel.uiState.value.schema)
+    assertEquals(MainUiStatus.FAILED, viewModel.uiState.value.status)
   }
 
   @Test
@@ -320,7 +323,7 @@ class MainViewModelTest {
 
     // Assert
     coVerify(exactly = 2) { repository.getUiSchema(SurfaceId.DASHBOARD) }
-    assertEquals("a1b2c3", loadedSchema(viewModel).revision)
+    assertEquals("a1b2c3", viewModel.uiState.value.revision)
   }
 
   private fun createViewModel(resolution: UiSchemaResolution): MainViewModel =
@@ -334,9 +337,6 @@ class MainViewModelTest {
     coEvery { repository.getUiSchema(SurfaceId.DASHBOARD) } returns Result.success(resolution)
     return repository
   }
-
-  private fun loadedSchema(viewModel: MainViewModel): UiSchemaUiState.Loaded =
-    viewModel.uiState.value.schema as UiSchemaUiState.Loaded
 
   private fun resolved(
     theme: UiTheme = UiTheme.LIGHT,

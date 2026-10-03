@@ -150,8 +150,13 @@ viewModel.uiState.test {
 instrumented test は JUnit 4 と AndroidX Test の runner / rule を使います。
 テスト関数名、AAA コメント、観点 prefix / comment の方針は JVM Unit Test とそろえ、coroutine を扱う場合だけ `runTest` を使います。
 
-Hilt の instrumented test 用の差し替え（`HiltTestRunner` など）は未導入です。
-Compose UI Test は `createAndroidComposeRule<ComponentActivity>()` で Composable を直接呼び、DI を経由しません。
+画面単体の Compose UI Test は `createAndroidComposeRule<ComponentActivity>()` で Composable を直接呼び、DI を経由しません。
+
+認証と画面切り替えの結合テストは `HiltTestRunner` / `HiltTestApplication` を使い、
+`createAndroidComposeRule<MainActivity>()` で本番の Activity、Route、ViewModel を通します。
+`@UninstallModules` と `@BindValue` で Repository を fake に差し替え、MSAL や実 API へ接続しません。
+Hilt の rule は Activity を起動する Compose rule より先に実行し、fake はテストクラスのフィールドで初期化します。
+Activity の再生成は `ActivityScenario.recreate()` で検証します。これはプロセス再生成の検証ではありません。
 
 ## 適用範囲
 

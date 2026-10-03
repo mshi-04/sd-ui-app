@@ -9,6 +9,7 @@ import com.example.sdui.domain.repository.AuthRepository
 import com.example.sdui.domain.usecase.RestoreSessionUseCase
 import com.example.sdui.domain.usecase.SignOutUseCase
 import com.example.sdui.ui.state.AuthUiState
+import com.example.sdui.ui.state.AuthUiStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -48,9 +49,9 @@ class AuthViewModelTest {
     // Act & Assert
     // Flow: the app stays on the restoring screen until the silent restore answers
     viewModel.uiState.test {
-      assertEquals(AuthUiState.Restoring, awaitItem())
+      assertEquals(AuthUiState(status = AuthUiStatus.RESTORING), awaitItem())
       advanceUntilIdle()
-      assertEquals(AuthUiState.SignedIn(ACCOUNT_NAME), awaitItem())
+      assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_IN, accountName = ACCOUNT_NAME), awaitItem())
     }
   }
 
@@ -65,7 +66,7 @@ class AuthViewModelTest {
     advanceUntilIdle()
 
     // Assert
-    assertEquals(AuthUiState.SignedOut, viewModel.uiState.value)
+    assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_OUT), viewModel.uiState.value)
   }
 
   @Test
@@ -80,7 +81,7 @@ class AuthViewModelTest {
     advanceUntilIdle()
 
     // Assert
-    assertEquals(AuthUiState.SignedOut, viewModel.uiState.value)
+    assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_OUT), viewModel.uiState.value)
   }
 
   @Test
@@ -97,7 +98,7 @@ class AuthViewModelTest {
     // Assert
     assertAll(
       { assertEquals(true, accepted) },
-      { assertEquals(AuthUiState.SignedIn(ACCOUNT_NAME), viewModel.uiState.value) },
+      { assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_IN, accountName = ACCOUNT_NAME), viewModel.uiState.value) },
     )
   }
 
@@ -114,7 +115,7 @@ class AuthViewModelTest {
     // Assert
     assertAll(
       { assertEquals(false, accepted) },
-      { assertEquals(AuthUiState.SignedIn(ACCOUNT_NAME), viewModel.uiState.value) },
+      { assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_IN, accountName = ACCOUNT_NAME), viewModel.uiState.value) },
     )
   }
 
@@ -148,11 +149,11 @@ class AuthViewModelTest {
     // Act & Assert
     // Flow: signing out returns to login even when the repository cannot clear the session
     viewModel.uiState.test {
-      assertEquals(AuthUiState.SignedIn(ACCOUNT_NAME), awaitItem())
+      assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_IN, accountName = ACCOUNT_NAME), awaitItem())
       viewModel.signOut()
       advanceUntilIdle()
-      assertEquals(AuthUiState.Restoring, awaitItem())
-      assertEquals(AuthUiState.SignedOut, awaitItem())
+      assertEquals(AuthUiState(status = AuthUiStatus.RESTORING), awaitItem())
+      assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_OUT), awaitItem())
     }
   }
 

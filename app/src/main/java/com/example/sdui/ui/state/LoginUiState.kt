@@ -1,17 +1,13 @@
 package com.example.sdui.ui.state
 
 data class LoginUiState(
-  val signIn: SignInUiState = SignInUiState.Idle,
+  val status: LoginUiStatus = LoginUiStatus.IDLE,
+  val accountName: String = "",
 )
 
-sealed interface SignInUiState {
-  data object Idle : SignInUiState
-
-  data object InProgress : SignInUiState
-
-  data class Succeeded(
-    val accountName: String,
-  ) : SignInUiState
-
-  data object Failed : SignInUiState
+enum class LoginUiStatus {
+  IDLE,
+  IN_PROGRESS,
+  SUCCEEDED,
+  FAILED,
 }

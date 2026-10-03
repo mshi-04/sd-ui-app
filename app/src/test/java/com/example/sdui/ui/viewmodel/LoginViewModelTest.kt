@@ -8,7 +8,7 @@ import com.example.sdui.domain.model.value.AccountName
 import com.example.sdui.domain.repository.AuthRepository
 import com.example.sdui.domain.usecase.SignInUseCase
 import com.example.sdui.ui.state.LoginUiState
-import com.example.sdui.ui.state.SignInUiState
+import com.example.sdui.ui.state.LoginUiStatus
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -63,9 +63,9 @@ class LoginViewModelTest {
       assertEquals(LoginUiState(), awaitItem())
       viewModel.signIn()
       advanceUntilIdle()
-      assertEquals(LoginUiState(signIn = SignInUiState.InProgress), awaitItem())
+      assertEquals(LoginUiState(status = LoginUiStatus.IN_PROGRESS), awaitItem())
       assertEquals(
-        LoginUiState(signIn = SignInUiState.Succeeded(ACCOUNT_NAME)),
+        LoginUiState(status = LoginUiStatus.SUCCEEDED, accountName = ACCOUNT_NAME),
         awaitItem(),
       )
     }
@@ -82,7 +82,7 @@ class LoginViewModelTest {
     advanceUntilIdle()
 
     // Assert
-    assertEquals(SignInUiState.Failed, viewModel.uiState.value.signIn)
+    assertEquals(LoginUiStatus.FAILED, viewModel.uiState.value.status)
   }
 
   @Test
@@ -96,7 +96,7 @@ class LoginViewModelTest {
     advanceUntilIdle()
 
     // Assert
-    assertEquals(SignInUiState.Failed, viewModel.uiState.value.signIn)
+    assertEquals(LoginUiStatus.FAILED, viewModel.uiState.value.status)
   }
 
   @Test

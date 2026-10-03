@@ -5,13 +5,12 @@ import androidx.lifecycle.viewModelScope
 import com.example.sdui.domain.model.AuthSession
 import com.example.sdui.domain.usecase.SignInUseCase
 import com.example.sdui.ui.state.LoginUiState
-import com.example.sdui.ui.state.SignInUiState
+import com.example.sdui.ui.state.LoginUiStatus
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 @HiltViewModel
@@ -22,28 +21,30 @@ class LoginViewModel @Inject constructor(
   val uiState: StateFlow<LoginUiState> = _uiState.asStateFlow()
 
   fun signIn() {
-    if (_uiState.value.signIn is SignInUiState.InProgress) return
+    if (_uiState.value.status == LoginUiStatus.IN_PROGRESS) return
 
-    _uiState.update { state -> state.copy(signIn = SignInUiState.InProgress) }
+    _uiState.value = LoginUiState(status = LoginUiStatus.IN_PROGRESS)
     viewModelScope.launch {
-      val signIn =
+      _uiState.value =
         signInUseCase().fold(
-          onSuccess = { session -> session.toUiState() },
-          onFailure = { SignInUiState.Failed },
+          onSuccess = { session ->
+            when (session) {
+              is AuthSession.SignedIn ->
+                LoginUiState(
+                  status = LoginUiStatus.SUCCEEDED,
+                  accountName = session.account.name.value,
+                )
+              AuthSession.SignedOut -> LoginUiState(status = LoginUiStatus.FAILED)
+            }
+          },
+          onFailure = { LoginUiState(status = LoginUiStatus.FAILED) },
         )
-      _uiState.update { state -> state.copy(signIn = signIn) }
     }
   }
 
   fun onSignedInHandled() {
-    if (_uiState.value.signIn !is SignInUiState.Succeeded) return
+    if (_uiState.value.status != LoginUiStatus.SUCCEEDED) return
 
-    _uiState.update { state -> state.copy(signIn = SignInUiState.Idle) }
+    _uiState.value = LoginUiState()
   }
-
-  private fun AuthSession.toUiState(): SignInUiState =
-    when (this) {
-      is AuthSession.SignedIn -> SignInUiState.Succeeded(accountName = account.name.value)
-      AuthSession.SignedOut -> SignInUiState.Failed
-    }
 }

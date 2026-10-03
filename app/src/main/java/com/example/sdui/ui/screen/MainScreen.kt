@@ -28,10 +28,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.sdui.R
+import com.example.sdui.ui.model.DashboardUiKind
+import com.example.sdui.ui.model.DashboardUiModel
 import com.example.sdui.ui.state.MainUiState
-import com.example.sdui.ui.state.UiComponentKindUiState
-import com.example.sdui.ui.state.UiComponentUiState
-import com.example.sdui.ui.state.UiSchemaUiState
+import com.example.sdui.ui.state.MainUiStatus
 import com.example.sdui.ui.theme.SDUITheme
 
 @Composable
@@ -42,10 +42,11 @@ fun MainScreen(
   onSignOut: () -> Unit,
   modifier: Modifier = Modifier,
 ) {
-  val loaded = uiState.schema as? UiSchemaUiState.Loaded
-  val spacing = if (loaded?.compact == true) COMPACT_SPACING else COMFORTABLE_SPACING
+  val spacing = if (uiState.compact) COMPACT_SPACING else COMFORTABLE_SPACING
+  val darkTheme =
+    if (uiState.status == MainUiStatus.LOADED) uiState.darkTheme else isSystemInDarkTheme()
 
-  SDUITheme(darkTheme = loaded?.darkTheme ?: isSystemInDarkTheme()) {
+  SDUITheme(darkTheme = darkTheme) {
     Surface(
       modifier = modifier.fillMaxSize(),
       color = MaterialTheme.colorScheme.background,
@@ -69,7 +70,7 @@ fun MainScreen(
         Row(horizontalArrangement = Arrangement.spacedBy(spacing)) {
           Button(
             onClick = onLoadUiSchema,
-            enabled = uiState.schema !is UiSchemaUiState.Loading,
+            enabled = uiState.status != MainUiStatus.LOADING,
           ) {
             Text(stringResource(R.string.load_ui_schema))
           }
@@ -78,8 +79,7 @@ fun MainScreen(
           }
         }
         UiSchemaContent(
-          schema = uiState.schema,
-          apiBaseUrl = uiState.apiBaseUrl,
+          uiState = uiState,
           spacing = spacing,
           modifier = Modifier.fillMaxWidth().weight(1f),
         )
@@ -90,43 +90,42 @@ fun MainScreen(
 
 @Composable
 private fun UiSchemaContent(
-  schema: UiSchemaUiState,
-  apiBaseUrl: String,
+  uiState: MainUiState,
   spacing: Dp,
   modifier: Modifier = Modifier,
 ) {
-  when (schema) {
-    UiSchemaUiState.Loading ->
+  when (uiState.status) {
+    MainUiStatus.LOADING ->
       Box(modifier = modifier, contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
       }
-    UiSchemaUiState.Unauthorized ->
+    MainUiStatus.UNAUTHORIZED ->
       UiSchemaMessage(modifier = modifier, spacing = spacing) {
         Text(stringResource(R.string.ui_schema_unauthorized))
       }
-    UiSchemaUiState.SurfaceNotFound ->
+    MainUiStatus.SURFACE_NOT_FOUND ->
       UiSchemaMessage(modifier = modifier, spacing = spacing) {
         Text(stringResource(R.string.ui_schema_surface_not_found))
-        ApiBaseUrlCaption(apiBaseUrl = apiBaseUrl)
+        ApiBaseUrlCaption(apiBaseUrl = uiState.apiBaseUrl)
       }
-    UiSchemaUiState.Failed ->
+    MainUiStatus.FAILED ->
       UiSchemaMessage(modifier = modifier, spacing = spacing) {
         Text(stringResource(R.string.ui_schema_failed))
-        ApiBaseUrlCaption(apiBaseUrl = apiBaseUrl)
+        ApiBaseUrlCaption(apiBaseUrl = uiState.apiBaseUrl)
       }
-    is UiSchemaUiState.Loaded ->
+    MainUiStatus.LOADED ->
       Column(
         modifier = modifier.verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(spacing),
       ) {
         Text(
-          text = stringResource(R.string.ui_schema_revision_format, schema.revision),
+          text = stringResource(R.string.ui_schema_revision_format, uiState.revision),
           style = MaterialTheme.typography.labelMedium,
         )
-        if (schema.components.isEmpty()) {
+        if (uiState.components.isEmpty()) {
           Text(stringResource(R.string.ui_schema_empty))
         }
-        UiComponentList(components = schema.components, spacing = spacing)
+        UiComponentList(components = uiState.components, spacing = spacing)
       }
   }
 }
@@ -153,7 +152,7 @@ private fun ApiBaseUrlCaption(apiBaseUrl: String) {
 }
 
 @Composable
-private fun UiComponentList(components: List<UiComponentUiState>, spacing: Dp) {
+private fun UiComponentList(components: List<DashboardUiModel>, spacing: Dp) {
   components.forEach { component ->
     UiComponentNode(
       component = component,
@@ -165,20 +164,20 @@ private fun UiComponentList(components: List<UiComponentUiState>, spacing: Dp) {
 
 @Composable
 private fun UiComponentNode(
-  component: UiComponentUiState,
+  component: DashboardUiModel,
   spacing: Dp,
   modifier: Modifier = Modifier,
 ) {
   when (component.kind) {
-    UiComponentKindUiState.CARD ->
+    DashboardUiKind.CARD ->
       Card(modifier = modifier) {
         UiComponentBody(component = component, spacing = spacing)
       }
-    UiComponentKindUiState.PANEL ->
+    DashboardUiKind.PANEL ->
       OutlinedCard(modifier = modifier) {
         UiComponentBody(component = component, spacing = spacing)
       }
-    UiComponentKindUiState.BANNER ->
+    DashboardUiKind.BANNER ->
       Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
@@ -186,7 +185,7 @@ private fun UiComponentNode(
       ) {
         UiComponentBody(component = component, spacing = spacing)
       }
-    UiComponentKindUiState.CHART ->
+    DashboardUiKind.CHART ->
       Surface(
         modifier = modifier,
         shape = MaterialTheme.shapes.medium,
@@ -194,7 +193,7 @@ private fun UiComponentNode(
       ) {
         UiComponentBody(component = component, spacing = spacing)
       }
-    UiComponentKindUiState.LIST ->
+    DashboardUiKind.LIST ->
       Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing),
@@ -202,7 +201,7 @@ private fun UiComponentNode(
         Text(text = component.label, style = MaterialTheme.typography.titleSmall)
         UiComponentList(components = component.children, spacing = spacing)
       }
-    UiComponentKindUiState.BUTTON ->
+    DashboardUiKind.BUTTON ->
       Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing),
@@ -216,7 +215,7 @@ private fun UiComponentNode(
 }
 
 @Composable
-private fun UiComponentBody(component: UiComponentUiState, spacing: Dp) {
+private fun UiComponentBody(component: DashboardUiModel, spacing: Dp) {
   Column(
     modifier = Modifier.padding(spacing),
     verticalArrangement = Arrangement.spacedBy(spacing),
@@ -246,34 +245,30 @@ private fun MainScreenLoadedPreview() {
   MainScreen(
     uiState =
       MainUiState(
-        schema =
-          UiSchemaUiState.Loaded(
-            revision = "a1b2c3",
-            darkTheme = false,
-            compact = false,
-            components =
-              listOf(
-                UiComponentUiState(
-                  id = "billing-summary",
-                  kind = UiComponentKindUiState.CARD,
-                  label = "Billing",
-                  children =
-                    listOf(
-                      UiComponentUiState(
-                        id = "invoice-list",
-                        kind = UiComponentKindUiState.LIST,
-                        label = "invoices",
-                        children = emptyList(),
-                      ),
-                    ),
+        status = MainUiStatus.LOADED,
+        revision = "a1b2c3",
+        components =
+          listOf(
+            DashboardUiModel(
+              id = "billing-summary",
+              kind = DashboardUiKind.CARD,
+              label = "Billing",
+              children =
+                listOf(
+                  DashboardUiModel(
+                    id = "invoice-list",
+                    kind = DashboardUiKind.LIST,
+                    label = "invoices",
+                    children = emptyList(),
+                  ),
                 ),
-                UiComponentUiState(
-                  id = "impersonation-banner",
-                  kind = UiComponentKindUiState.BANNER,
-                  label = "warning",
-                  children = emptyList(),
-                ),
-              ),
+            ),
+            DashboardUiModel(
+              id = "impersonation-banner",
+              kind = DashboardUiKind.BANNER,
+              label = "warning",
+              children = emptyList(),
+            ),
           ),
       ),
     accountName = "billing@example.onmicrosoft.com",

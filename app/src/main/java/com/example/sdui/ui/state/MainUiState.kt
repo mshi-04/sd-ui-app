@@ -1,23 +1,20 @@
 package com.example.sdui.ui.state
 
+import com.example.sdui.ui.model.DashboardUiModel
+
 data class MainUiState(
   val apiBaseUrl: String = "",
-  val schema: UiSchemaUiState = UiSchemaUiState.Loading,
+  val status: MainUiStatus = MainUiStatus.LOADING,
+  val revision: String = "",
+  val darkTheme: Boolean = false,
+  val compact: Boolean = false,
+  val components: List<DashboardUiModel> = emptyList(),
 )
 
-sealed interface UiSchemaUiState {
-  data object Loading : UiSchemaUiState
-
-  data class Loaded(
-    val revision: String,
-    val darkTheme: Boolean,
-    val compact: Boolean,
-    val components: List<UiComponentUiState>,
-  ) : UiSchemaUiState
-
-  data object Unauthorized : UiSchemaUiState
-
-  data object SurfaceNotFound : UiSchemaUiState
-
-  data object Failed : UiSchemaUiState
+enum class MainUiStatus {
+  LOADING,
+  LOADED,
+  UNAUTHORIZED,
+  SURFACE_NOT_FOUND,
+  FAILED,
 }

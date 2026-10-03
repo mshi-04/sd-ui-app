@@ -1,6 +1,5 @@
 package com.example.sdui.ui.route
 
-import android.annotation.SuppressLint
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -11,10 +10,10 @@ import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.sdui.ui.screen.MainScreen
-import com.example.sdui.ui.state.UiSchemaUiState
+import com.example.sdui.ui.state.MainUiState
+import com.example.sdui.ui.state.MainUiStatus
 import com.example.sdui.ui.viewmodel.MainViewModel
 
-@SuppressLint("StateFlowValueCalledInComposition")
 @Composable
 fun MainRoute(
   accountName: String,
@@ -22,34 +21,30 @@ fun MainRoute(
   modifier: Modifier = Modifier,
   viewModel: MainViewModel = hiltViewModel(),
 ) {
-  val uiState by viewModel.uiState.collectAsStateWithLifecycle()
-  var hasEnteredScreen by remember { mutableStateOf(false) }
+  var hasEnteredScreen by remember(viewModel) { mutableStateOf(false) }
 
-  LaunchedEffect(Unit) {
+  LaunchedEffect(viewModel) {
     viewModel.onScreenEntered()
     hasEnteredScreen = true
   }
 
-  LaunchedEffect(uiState.schema, hasEnteredScreen) {
-    if (
-      hasEnteredScreen &&
-        uiState.schema is UiSchemaUiState.Unauthorized &&
-        viewModel.uiState.value.schema is UiSchemaUiState.Unauthorized
-    ) {
+  // Reentry must reset the retained ViewModel before collecting the previous account's state.
+  val uiState =
+    if (hasEnteredScreen) {
+      val state by viewModel.uiState.collectAsStateWithLifecycle()
+      state
+    } else {
+      MainUiState()
+    }
+
+  LaunchedEffect(uiState.status) {
+    if (uiState.status == MainUiStatus.UNAUTHORIZED) {
       onSessionEnd()
     }
   }
 
-  val currentUiState = viewModel.uiState.value
-  val displayedUiState =
-    if (!hasEnteredScreen || currentUiState.schema is UiSchemaUiState.Loading) {
-      uiState.copy(schema = UiSchemaUiState.Loading)
-    } else {
-      uiState
-    }
-
   MainScreen(
-    uiState = displayedUiState,
+    uiState = uiState,
     accountName = accountName,
     onLoadUiSchema = viewModel::loadUiSchema,
     onSignOut = onSessionEnd,
