@@ -7,7 +7,8 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.sdui.ui.route.LoginRoute
 import com.example.sdui.ui.route.MainRoute
-import com.example.sdui.ui.screen.AuthRestoringScreen
+import com.example.sdui.ui.screen.SignOutFailedScreen
+import com.example.sdui.ui.screen.SigningOutScreen
 import com.example.sdui.ui.state.AuthUiStatus
 import com.example.sdui.ui.viewmodel.AuthViewModel
 
@@ -19,7 +20,12 @@ fun SdUiApp(
   val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
   when (uiState.status) {
-    AuthUiStatus.RESTORING -> AuthRestoringScreen(modifier = modifier)
+    AuthUiStatus.SIGNING_OUT -> SigningOutScreen(modifier = modifier)
+    AuthUiStatus.SIGN_OUT_FAILED ->
+      SignOutFailedScreen(
+        onRetry = viewModel::signOut,
+        modifier = modifier,
+      )
     AuthUiStatus.SIGNED_OUT ->
       LoginRoute(
         onSignedIn = viewModel::onSignedIn,

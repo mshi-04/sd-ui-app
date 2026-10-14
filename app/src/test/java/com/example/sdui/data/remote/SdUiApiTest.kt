@@ -1,13 +1,9 @@
 package com.example.sdui.data.remote
 
 import com.example.sdui.data.di.NetworkModule
-import com.example.sdui.data.model.UiComponentDto
-import com.example.sdui.data.model.UiSchemaDto
 import java.net.HttpURLConnection
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.put
+import kotlinx.serialization.json.Json
 import okhttp3.Headers
 import okhttp3.Headers.Companion.headersOf
 import okhttp3.Interceptor
@@ -18,7 +14,6 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Assertions.assertAll
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
-import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
 
@@ -26,82 +21,17 @@ class SdUiApiTest {
   private val server = FakeServerInterceptor()
 
   @Test
-  fun normalUiSchemaResponseIsDeserialized() = runTest {
+  fun normalUiSchemaResponseBodyIsHandedOverUndecoded() = runTest {
     // Arrange
     enqueueJson(SCHEMA_JSON)
     val api = createApi()
 
     // Act
-    // Normal: the UI schema JSON is deserialized into the DTO tree
-    val actual = api.getUiSchema(SURFACE, null).body()
+    // Normal: the response body reaches the caller as raw JSON without being decoded into a DTO
+    val actual = api.getUiSchema(SURFACE, null).body()?.string()
 
     // Assert
-    assertEquals(
-      UiSchemaDto(
-        surface = "dashboard",
-        version = "2026-06-01",
-        revision = "a1b2c3",
-        theme = "dark",
-        density = "compact",
-        components =
-          listOf(
-            UiComponentDto(
-              id = "billing-summary",
-              type = "Card",
-              props = buildJsonObject {
-                put("title", "Billing")
-                put("span", 6)
-              },
-              children =
-                listOf(
-                  UiComponentDto(
-                    id = "invoice-list",
-                    type = "List",
-                    props = buildJsonObject { put("source", "invoices") },
-                    children = emptyList(),
-                  ),
-                ),
-            ),
-          ),
-      ),
-      actual,
-    )
-  }
-
-  @Test
-  fun boundaryMissingOptionalFieldsFallBackToDefaults() = runTest {
-    // Arrange
-    enqueueJson("""{"surface":"dashboard","version":"2026-06-01","revision":"a1b2c3"}""")
-    val api = createApi()
-
-    // Act
-    // Boundary: presentation hints and components are optional on the wire
-    val actual = api.getUiSchema(SURFACE, null).body()
-
-    // Assert
-    assertEquals(
-      UiSchemaDto(surface = "dashboard", version = "2026-06-01", revision = "a1b2c3"),
-      actual,
-    )
-  }
-
-  @Test
-  fun boundaryUnknownFieldsAreIgnored() = runTest {
-    // Arrange
-    enqueueJson(
-      """{"surface":"dashboard","version":"2026-06-01","revision":"a1b2c3","expiresIn":60}""",
-    )
-    val api = createApi()
-
-    // Act
-    // Boundary: fields the client does not know do not break the response
-    val actual = api.getUiSchema(SURFACE, null).body()
-
-    // Assert
-    assertEquals(
-      UiSchemaDto(surface = "dashboard", version = "2026-06-01", revision = "a1b2c3"),
-      actual,
-    )
+    assertEquals(Json.parseToJsonElement(SCHEMA_JSON), Json.parseToJsonElement(checkNotNull(actual)))
   }
 
   @Test
@@ -187,20 +117,6 @@ class SdUiApiTest {
       { assertFalse(actual.isSuccessful) },
       { assertEquals(HttpURLConnection.HTTP_UNAUTHORIZED, actual.code()) },
     )
-  }
-
-  @Test
-  fun errorMissingRequiredFieldFailsDeserialization() = runTest {
-    // Arrange
-    enqueueJson("""{"surface":"dashboard"}""")
-    val api = createApi()
-
-    // Act
-    // Error: required schema fields have no default, so decoding fails
-    val thrown = runCatching { api.getUiSchema(SURFACE, null) }.exceptionOrNull()
-
-    // Assert
-    assertInstanceOf(SerializationException::class.java, thrown)
   }
 
   private fun enqueueJson(body: String) {

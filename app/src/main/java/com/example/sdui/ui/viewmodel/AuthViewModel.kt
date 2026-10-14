@@ -2,8 +2,6 @@ package com.example.sdui.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.sdui.domain.model.AuthSession
-import com.example.sdui.domain.usecase.RestoreSessionUseCase
 import com.example.sdui.domain.usecase.SignOutUseCase
 import com.example.sdui.ui.state.AuthUiState
 import com.example.sdui.ui.state.AuthUiStatus
@@ -16,14 +14,13 @@ import kotlinx.coroutines.launch
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-  private val restoreSessionUseCase: RestoreSessionUseCase,
   private val signOutUseCase: SignOutUseCase,
 ) : ViewModel() {
   private val _uiState = MutableStateFlow(AuthUiState())
   val uiState: StateFlow<AuthUiState> = _uiState.asStateFlow()
 
   init {
-    restoreSession()
+    clearSession()
   }
 
   fun onSignedIn(accountName: String): Boolean {
@@ -34,31 +31,24 @@ class AuthViewModel @Inject constructor(
   }
 
   fun signOut() {
-    if (_uiState.value.status != AuthUiStatus.SIGNED_IN) return
+    if (_uiState.value.status !in SIGN_OUT_ACCEPTING_STATUSES) return
 
-    _uiState.value = AuthUiState(status = AuthUiStatus.RESTORING)
+    clearSession()
+  }
+
+  private fun clearSession() {
+    _uiState.value = AuthUiState(status = AuthUiStatus.SIGNING_OUT)
     viewModelScope.launch {
-      signOutUseCase()
-      _uiState.value = AuthUiState(status = AuthUiStatus.SIGNED_OUT)
+      val status =
+        signOutUseCase().fold(
+          onSuccess = { AuthUiStatus.SIGNED_OUT },
+          onFailure = { AuthUiStatus.SIGN_OUT_FAILED },
+        )
+      _uiState.value = AuthUiState(status = status)
     }
   }
 
-  private fun restoreSession() {
-    viewModelScope.launch {
-      _uiState.value =
-        restoreSessionUseCase().fold(
-          onSuccess = { session ->
-            when (session) {
-              is AuthSession.SignedIn ->
-                AuthUiState(
-                  status = AuthUiStatus.SIGNED_IN,
-                  accountName = session.account.name.value,
-                )
-              AuthSession.SignedOut -> AuthUiState(status = AuthUiStatus.SIGNED_OUT)
-            }
-          },
-          onFailure = { AuthUiState(status = AuthUiStatus.SIGNED_OUT) },
-        )
-    }
+  private companion object {
+    val SIGN_OUT_ACCEPTING_STATUSES = setOf(AuthUiStatus.SIGNED_IN, AuthUiStatus.SIGN_OUT_FAILED)
   }
 }

@@ -29,7 +29,8 @@ Run ボタンからのビルドにも効きます。既定値は dev の実 API 
 ```
 
 エミュレーターからホストの `localhost` を指す場合は `10.0.2.2` を使います。
-平文 HTTP は `debug` ビルドだけで許可されます。詳細は [`docs/server-contract.md`](server-contract.md) を参照します。
+平文 HTTP は `debug` ビルドの `10.0.2.2` と `localhost` だけで許可されます。詳細は [`docs/server-contract.md`](server-contract.md) を参照します。
+実機から LAN 内の IP アドレスへ接続する場合は、その host を `app/src/debug/res/xml/network_security_config.xml` に追加します。
 
 ## 実 API へ向ける
 
@@ -52,6 +53,7 @@ seed のスキーマを返します。
 ```
 
 アプリの画面に入るには MSAL のサインインが必要です。
+ベース URL が `http` のため、アクセストークンはローカルサーバーへ送られません（`dev_server.py` も読みません）。
 サーバーはトークンを見ないため、権限を持たない利用者として `usage-summary` だけを返します。
 
 ## ローカルでの検証

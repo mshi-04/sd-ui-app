@@ -37,7 +37,7 @@ SD UI は、サーバーと接続する Android クライアントです。
   - `di/`: アプリ全体の構成値を組み立てる Hilt module と qualifier
   - `MainActivity` / `SdUiApplication`: Android 画面とアプリの entry point
 - `app/src/main/res/`: Android リソース（表示文字列は `strings.xml` に集約）
-- `app/src/debug/AndroidManifest.xml`: `debug` ビルドだけの平文 HTTP 許可
+- `app/src/debug/AndroidManifest.xml` と `app/src/debug/res/xml/network_security_config.xml`: `debug` ビルドだけの Network Security Config（`10.0.2.2` と `localhost` への平文 HTTP 許可）
 - `app/src/main/res/raw/msal_config.json`: MSAL の構成
 - `app/src/test/`: JVM Unit Test
 - `app/src/androidTest/`: instrumented test / Compose UI Test

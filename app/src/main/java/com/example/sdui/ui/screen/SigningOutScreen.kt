@@ -17,21 +17,21 @@ import com.example.sdui.R
 import com.example.sdui.ui.theme.SDUITheme
 
 @Composable
-fun AuthRestoringScreen(modifier: Modifier = Modifier) {
+fun SigningOutScreen(modifier: Modifier = Modifier) {
   Column(
     modifier = modifier.fillMaxSize().safeDrawingPadding().padding(24.dp),
     verticalArrangement = Arrangement.spacedBy(16.dp, Alignment.CenterVertically),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
     CircularProgressIndicator()
-    Text(stringResource(R.string.session_restoring))
+    Text(stringResource(R.string.signing_out))
   }
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun AuthRestoringScreenPreview() {
+private fun SigningOutScreenPreview() {
   SDUITheme {
-    AuthRestoringScreen()
+    SigningOutScreen()
   }
 }

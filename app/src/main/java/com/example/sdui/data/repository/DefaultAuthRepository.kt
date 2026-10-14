@@ -13,9 +13,6 @@ import kotlinx.coroutines.CancellationException
 class DefaultAuthRepository @Inject constructor(
   private val authClient: MsalAuthClient,
 ) : AuthRepository {
-  override suspend fun restoreSession(): Result<AuthSession> =
-    resultOf { authClient.restoreSignedInAccount().toSession() }
-
   override suspend fun signIn(): Result<AuthSession> =
     resultOf { authClient.signIn().toSession() }
 

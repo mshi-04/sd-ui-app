@@ -5,4 +5,6 @@ import com.example.sdui.domain.model.value.SurfaceId
 
 interface UiSchemaRepository {
   suspend fun getUiSchema(surface: SurfaceId): Result<UiSchemaResolution>
+
+  fun clearSchema()
 }

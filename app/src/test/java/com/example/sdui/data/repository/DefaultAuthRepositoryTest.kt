@@ -28,7 +28,6 @@ class DefaultAuthRepositoryTest {
   @EnumSource(Operation::class)
   fun interactionOperationCallsOnlyItsCorrespondingAdapterMethod(operation: Operation) = runTest {
     // Arrange
-    coEvery { client.restoreSignedInAccount() } returns null
     coEvery { client.signIn() } returns null
     coEvery { client.signOut() } returns Unit
 
@@ -38,27 +37,19 @@ class DefaultAuthRepositoryTest {
 
     // Assert
     assertAll(
-      {
-        coVerify(exactly = if (operation == Operation.Restore) 1 else 0) {
-          client.restoreSignedInAccount()
-        }
-      },
       { coVerify(exactly = if (operation == Operation.SignIn) 1 else 0) { client.signIn() } },
       { coVerify(exactly = if (operation == Operation.SignOut) 1 else 0) { client.signOut() } },
     )
   }
 
-  @ParameterizedTest
-  @EnumSource(value = Operation::class, names = ["Restore", "SignIn"])
-  fun normalAccountIsMappedToNormalizedSignedInSession(operation: Operation) = runTest {
+  @Test
+  fun normalSignInAccountIsMappedToNormalizedSignedInSession() = runTest {
     // Arrange
-    val account = MsalAccount(" account-id ", " user@example.com ")
-    coEvery { client.restoreSignedInAccount() } returns account
-    coEvery { client.signIn() } returns account
+    coEvery { client.signIn() } returns MsalAccount(" account-id ", " user@example.com ")
 
     // Act
     // Normal: account data is normalized through domain value objects
-    val actual = operation.execute(repository).getOrThrow()
+    val actual = repository.signIn().getOrThrow()
 
     // Assert
     assertEquals(
@@ -67,48 +58,40 @@ class DefaultAuthRepositoryTest {
     )
   }
 
-  @ParameterizedTest
-  @EnumSource(value = Operation::class, names = ["Restore", "SignIn"])
-  fun boundaryMissingAccountBecomesSignedOutSession(operation: Operation) = runTest {
+  @Test
+  fun boundarySignInMissingAccountBecomesSignedOutSession() = runTest {
     // Arrange
-    coEvery { client.restoreSignedInAccount() } returns null
     coEvery { client.signIn() } returns null
 
     // Act
     // Boundary: the adapter's missing account maps to the signed-out domain session
-    val actual = operation.execute(repository).getOrThrow()
+    val actual = repository.signIn().getOrThrow()
 
     // Assert
     assertEquals(AuthSession.SignedOut, actual)
   }
 
-  @ParameterizedTest
-  @EnumSource(value = Operation::class, names = ["Restore", "SignIn"])
-  fun errorInvalidAccountIdBecomesFailedResult(operation: Operation) = runTest {
+  @Test
+  fun errorSignInInvalidAccountIdBecomesFailedResult() = runTest {
     // Arrange
-    val account = MsalAccount(" ", "user@example.com")
-    coEvery { client.restoreSignedInAccount() } returns account
-    coEvery { client.signIn() } returns account
+    coEvery { client.signIn() } returns MsalAccount(" ", "user@example.com")
 
     // Act
     // Error: invalid adapter data cannot create a signed-in domain session
-    val actual = operation.execute(repository)
+    val actual = repository.signIn()
 
     // Assert
     assertInstanceOf(IllegalArgumentException::class.java, actual.exceptionOrNull())
   }
 
-  @ParameterizedTest
-  @EnumSource(value = Operation::class, names = ["Restore", "SignIn"])
-  fun errorInvalidAccountNameBecomesFailedResult(operation: Operation) = runTest {
+  @Test
+  fun errorSignInInvalidAccountNameBecomesFailedResult() = runTest {
     // Arrange
-    val account = MsalAccount("account-id", " ")
-    coEvery { client.restoreSignedInAccount() } returns account
-    coEvery { client.signIn() } returns account
+    coEvery { client.signIn() } returns MsalAccount("account-id", " ")
 
     // Act
     // Error: blank account names are rejected during domain conversion
-    val actual = operation.execute(repository)
+    val actual = repository.signIn()
 
     // Assert
     assertInstanceOf(IllegalArgumentException::class.java, actual.exceptionOrNull())
@@ -119,7 +102,6 @@ class DefaultAuthRepositoryTest {
   fun errorAdapterExceptionBecomesFailedResult(operation: Operation) = runTest {
     // Arrange
     val error = IOException("authentication unavailable")
-    coEvery { client.restoreSignedInAccount() } throws error
     coEvery { client.signIn() } throws error
     coEvery { client.signOut() } throws error
 
@@ -136,7 +118,6 @@ class DefaultAuthRepositoryTest {
   fun coroutineCancellationIsRethrownForEachOperation(operation: Operation) = runTest {
     // Arrange
     val cancellation = CancellationException("cancelled")
-    coEvery { client.restoreSignedInAccount() } throws cancellation
     coEvery { client.signIn() } throws cancellation
     coEvery { client.signOut() } throws cancellation
 
@@ -165,12 +146,10 @@ class DefaultAuthRepositoryTest {
   }
 
   enum class Operation {
-    Restore,
     SignIn,
     SignOut;
 
     suspend fun execute(repository: DefaultAuthRepository): Result<*> = when (this) {
-      Restore -> repository.restoreSession()
       SignIn -> repository.signIn()
       SignOut -> repository.signOut()
     }

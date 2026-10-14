@@ -7,7 +7,6 @@ import com.microsoft.identity.client.IAuthenticationResult
 import com.microsoft.identity.client.ISingleAccountPublicClientApplication
 import com.microsoft.identity.client.SignInParameters
 import com.microsoft.identity.client.exception.MsalClientException
-import com.microsoft.identity.client.exception.MsalUiRequiredException
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -64,7 +63,7 @@ class MsalAuthClientTest {
     val secondSignIn = async { client.signIn() }
     firstSignIn.await()
     secondSignIn.await()
-    client.restoreSignedInAccount()
+    client.signOut()
 
     // Assert
     verify(exactly = 1) { factory.create() }
@@ -80,100 +79,14 @@ class MsalAuthClientTest {
 
     // Act
     // Error: failed creation is not cached and the next operation retries
-    val failure = runCatching { client.restoreSignedInAccount() }.exceptionOrNull()
-    val restored = client.restoreSignedInAccount()
+    val failure = runCatching { client.signOut() }.exceptionOrNull()
+    client.signOut()
 
     // Assert
     assertAll(
       { assertSame(error, failure) },
-      { assertNull(restored) },
       { verify(exactly = 2) { factory.create() } },
     )
-  }
-
-  @Test
-  fun normalRestoreMapsTheSilentlyAuthenticatedAccount() = runTest {
-    // Arrange
-    val client = createClient()
-    currentAccount(account)
-    val result = authenticationResult(account)
-    every { application.acquireTokenSilent(any()) } returns result
-
-    // Act
-    // Normal: silent authentication returns the account identity
-    val actual = client.restoreSignedInAccount()
-
-    // Assert
-    assertEquals(MsalAccount("account-id", "user@example.com"), actual)
-  }
-
-  @Test
-  fun interactionRestoreUsesTheCurrentAccountAuthorityAndConfiguredScope() = runTest {
-    // Arrange
-    val client = createClient()
-    currentAccount(account)
-    every { application.acquireTokenSilent(any()) } returns authenticationResult(account)
-
-    // Act
-    // Interaction: silent token acquisition is scoped to the cached account
-    client.restoreSignedInAccount()
-
-    // Assert
-    verify(exactly = 1) {
-      application.acquireTokenSilent(match {
-        it.account === account &&
-          it.authority == "https://login.microsoftonline.com/tenant" &&
-          it.scopes == listOf(API_SCOPE)
-      })
-    }
-  }
-
-  @Test
-  fun boundaryRestoreWithoutAccountSkipsSilentAuthentication() = runTest {
-    // Arrange
-    val client = createClient()
-    currentAccount(null)
-
-    // Act
-    // Boundary: absence of a cached account produces no restored session
-    val actual = client.restoreSignedInAccount()
-
-    // Assert
-    assertAll(
-      { assertNull(actual) },
-      { verify(exactly = 0) { application.acquireTokenSilent(any()) } },
-    )
-  }
-
-  @Test
-  fun boundaryRestoreRequiringInteractionReturnsNoAccount() = runTest {
-    // Arrange
-    val client = createClient()
-    currentAccount(account)
-    every { application.acquireTokenSilent(any()) } throws MsalUiRequiredException("no_token")
-
-    // Act
-    // Boundary: an interactive authentication requirement falls back to signed out
-    val actual = client.restoreSignedInAccount()
-
-    // Assert
-    assertNull(actual)
-  }
-
-  @Test
-  fun errorRestorePropagatesOtherMsalErrors() = runTest {
-    // Arrange
-    val client = createClient()
-    currentAccount(account)
-    val error = MsalClientException("network_error")
-    every { application.acquireTokenSilent(any()) } throws error
-
-    // Act
-    // Error: non-interactive MSAL failures remain visible to the repository
-    val actual = runCatching { client.restoreSignedInAccount() }.exceptionOrNull()
-
-    // Assert
-    assertSame(error, actual)
   }
 
   @Test
@@ -325,16 +238,53 @@ class MsalAuthClientTest {
   }
 
   @Test
-  fun coroutineRestorePropagatesCancellation() = runTest {
+  fun boundarySignOutReportedAsNotRemovedWhileAccountIsGoneSucceeds() = runTest {
+    // Arrange
+    val client = createClient()
+    every { application.currentAccount } returnsMany
+      listOf(
+        CurrentAccountResult(account, null, false),
+        CurrentAccountResult(null, null, false),
+      )
+    every { application.signOut() } returns false
+
+    // Act
+    // Boundary: a missing token cache record is not a failure once the account is cleared
+    val failure = runCatching { client.signOut() }.exceptionOrNull()
+
+    // Assert
+    assertAll(
+      { assertNull(failure) },
+      { verify(exactly = 1) { application.signOut() } },
+    )
+  }
+
+  @Test
+  fun errorSignOutReportedAsNotRemovedWhileAccountRemainsFails() = runTest {
+    // Arrange
+    val client = createClient()
+    currentAccount(account)
+    every { application.signOut() } returns false
+
+    // Act
+    // Error: a cached account that survives sign-out would be restored on the next launch
+    val actual = runCatching { client.signOut() }.exceptionOrNull()
+
+    // Assert
+    assertInstanceOf(IllegalStateException::class.java, actual)
+  }
+
+  @Test
+  fun coroutineSignOutPropagatesCancellation() = runTest {
     // Arrange
     val client = createClient()
     currentAccount(account)
     val cancellation = CancellationException("cancelled")
-    every { application.acquireTokenSilent(any()) } throws cancellation
+    every { application.signOut() } throws cancellation
 
     // Act
-    // Coroutine: coroutine cancellation is not converted into a missing session
-    val actual = runCatching { client.restoreSignedInAccount() }.exceptionOrNull()
+    // Coroutine: coroutine cancellation is not converted into a sign-out result
+    val actual = runCatching { client.signOut() }.exceptionOrNull()
 
     // Assert
     assertInstanceOf(CancellationException::class.java, actual)

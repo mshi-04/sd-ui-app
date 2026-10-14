@@ -24,7 +24,7 @@ SD UI は Clean Architecture をベースに、UI 層は MVVM で構成します
 型の接尾語だけを根拠に `data` / `type` / `event` などの補助パッケージを増やしません。
 
 - `ui`: Compose 画面、ViewModel、UI state
-  - `SdUiApp`: `AuthViewModel` の認証状態を収集し、復元中画面、`LoginRoute`、`MainRoute` を出し分けるアプリレベルの entry
+  - `SdUiApp`: `AuthViewModel` の認証状態を収集し、サインアウト中画面、サインアウト失敗画面、`LoginRoute`、`MainRoute` を出し分けるアプリレベルの entry
   - `route`: ViewModel と画面を接続し、`collectAsStateWithLifecycle()` で state を収集する `XxxRoute`。
   - `screen`: state と callback を受け取る `XxxScreen`。メニュー開閉など短命な UI element state は保持してよい
   - `viewmodel`: 画面ごとの `XxxViewModel` と、アプリレベルの認証状態を持つ `AuthViewModel`
@@ -76,8 +76,9 @@ UI state / status / model / result / event は、それぞれ `XxxUiState` / `Xx
 
 `LoadUiSchemaUseCase` は UI スキーマ取得の操作境界を持ち、対象 surface の既定値
 （`SurfaceId.DASHBOARD`）を所有します。ViewModel は surface を決めず、UseCase を呼びます。
-認証は `RestoreSessionUseCase` / `SignInUseCase` / `SignOutUseCase` の3つに分け、
+認証は `SignInUseCase` / `SignOutUseCase` の2つに分け、
 1つの UseCase が1つの操作を表す形をそろえます。
+`SignOutUseCase` は `AuthRepository` のサインアウトと `UiSchemaRepository` の保持スキーマ破棄を調停します。
 
 ## Value Object
 
@@ -100,7 +101,7 @@ UI state / status / model / result / event は、それぞれ `XxxUiState` / `Xx
 サーバー応答は次の経路で UI state へ変換します。層をまたぐ度に、扱う型を1段ずつドメイン寄りへ移します。
 
 1. `data/remote`: Retrofit が `Response` を返し、契約に書かれたステータスを `UiSchemaResponse` へ分類する。
-   契約外の HTTP エラーと復号失敗は例外
+   契約外の HTTP エラー、復号失敗、component の入れ子の上限超過は例外
 2. `data/repository`: 例外を捕捉して `Result.failure` に畳み、成功時は mapper で domain model へ変換して
    `UiSchemaResolution` へ解釈する
 3. `domain/usecase`: 対象 surface を決めて操作を呼び、`Result` を握りつぶさずそのまま返す

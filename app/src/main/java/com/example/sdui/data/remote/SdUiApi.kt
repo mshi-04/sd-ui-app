@@ -1,6 +1,6 @@
 package com.example.sdui.data.remote
 
-import com.example.sdui.data.model.UiSchemaDto
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Header
@@ -11,5 +11,5 @@ interface SdUiApi {
   suspend fun getUiSchema(
     @Path("surface") surface: String,
     @Header("If-None-Match") etag: String?,
-  ): Response<UiSchemaDto>
+  ): Response<ResponseBody>
 }
