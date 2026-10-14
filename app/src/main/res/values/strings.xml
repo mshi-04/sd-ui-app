@@ -3,7 +3,9 @@
     <string name="sign_in">Microsoft アカウントでサインイン</string>
     <string name="sign_in_description">表示内容を取得するにはサインインが必要です</string>
     <string name="sign_in_failed">サインインを完了できませんでした</string>
-    <string name="session_restoring">サインイン状態を確認しています</string>
+    <string name="signing_out">サインアウトしています</string>
+    <string name="sign_out_failed">サインアウトを完了できませんでした</string>
+    <string name="sign_out_retry">再試行</string>
     <string name="signed_in_as_format">サインイン中: %1$s</string>
     <string name="sign_out">サインアウト</string>
     <string name="load_ui_schema">再取得</string>

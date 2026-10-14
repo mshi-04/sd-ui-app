@@ -15,7 +15,7 @@
 | --- | --- |
 | `surface` | 画面識別子。現在は `dashboard` のみ |
 | `If-None-Match` | 直前の応答の `ETag`。保持していない場合は送らない |
-| `Authorization` | `Bearer <access token>`。MSAL で取得する。構成は [`docs/authentication.md`](authentication.md) |
+| `Authorization` | `Bearer <access token>`。MSAL で取得し、ベース URL と同じ host / port の `https` リクエストにだけ付ける。構成は [`docs/authentication.md`](authentication.md) |
 
 | ステータス | 意味 |
 | --- | --- |
@@ -55,6 +55,12 @@
 - `components`: 任意。欠損は空として扱う。`children` も同じ
 - `id`: 空白のみは値オブジェクトの生成制約により通信失敗として扱う
 - 未知のフィールドは無視する（`Json { ignoreUnknownKeys = true }`）
+
+### component の入れ子の上限
+
+`components` から `children` へ続く入れ子は、最上位の component を 1 段目として 32 段までを受け付けます。
+33 段以上の応答は復号前に例外として拒否し、通信失敗（`MainUiStatus.FAILED`）として扱います。
+極端に深い入れ子で `StackOverflowError` が発生し、`catch` で捕捉できずにプロセスが終了することを防ぐための、クライアント側の制限です。
 
 ### 未知の component type
 
@@ -101,8 +107,12 @@ object、配列、`null` の値は落とします。数値と真偽値は文字�
 取得に失敗した状態（`SURFACE_NOT_FOUND` / `FAILED`）では、接続先を画面へ表示します。
 接続先の誤りとサーバー側の不具合を、画面だけで区別できるようにするためです。
 
-`debug` ビルドだけがローカル開発向けの平文 HTTP 通信を許可します（`app/src/debug/AndroidManifest.xml`）。
-`release` ビルドでは許可しません。
+`Authorization` ヘッダーは、`https` で、host と port がベース URL と一致するリクエストにだけ付けます。
+ベース URL が `http` の場合や別の host へのリクエストでは、トークンの取得も行わず、ヘッダーなしで送ります。
+
+`debug` ビルドだけが、`10.0.2.2` と `localhost` への平文 HTTP 通信を許可します
+（`app/src/debug/res/xml/network_security_config.xml`）。
+それ以外の host と `release` ビルドでは平文を許可しません。
 
 ## 応答の分類
 
@@ -114,7 +124,7 @@ object、配列、`null` の値は落とします。数値と真偽値は文字�
 | 変更なし | HTTP 304 | `UiSchemaResolution.Resolved`（保持中のスキーマ） | `MainUiStatus.LOADED` |
 | 認証されない | HTTP 401 | `UiSchemaResolution.Unauthorized` | `MainUiStatus.UNAUTHORIZED` |
 | 未知の surface | HTTP 404 | `UiSchemaResolution.SurfaceNotFound` | `MainUiStatus.SURFACE_NOT_FOUND` |
-| 通信失敗 | その他の HTTP エラー、復号失敗、接続失敗、値オブジェクトの制約違反 | `Result.failure` | `MainUiStatus.FAILED` |
+| 通信失敗 | その他の HTTP エラー、復号失敗、入れ子の上限超過、接続失敗、値オブジェクトの制約違反 | `Result.failure` | `MainUiStatus.FAILED` |
 
 401 と 404 は契約に書かれた結果のため、`Result.failure` ではなく値として扱います。
 
@@ -125,21 +135,29 @@ Repository は surface ごとに直前の `ETag` と解決済みスキーマを�
 保持は プロセス内のメモリだけで、永続化は導入していません。プロセスが再生成されると
 最初の要求は無条件取得に戻ります。
 
+保持中の `ETag` とスキーマは、サインアウト時に破棄します。サインアウトが失敗した場合も破棄し、
+別のアカウントへ前のアカウントの `ETag` を送りません。サインアウトより前に始まった取得の応答は、
+サインアウト後に完了しても保持しません。
+
 保持しているスキーマが無い状態で 304 を受け取った場合は、返せるスキーマが無いため通信失敗として扱います。
 
 ## 変換の経路
 
 ```
-UiSchemaDto -> UiSchema -> UiSchemaResolution -> MainUiState
- (data/model)  (data/mapper)  (data/repository)   (ui/viewmodel)
+JSON 文字列 -> JsonElement -> UiSchemaDto -> UiSchema -> UiSchemaResolution -> MainUiState
+ (data/remote)  (data/remote)  (data/model)  (data/mapper)  (data/repository)   (ui/viewmodel)
 ```
 
+- JSON 文字列 / `JsonElement`: `SdUiApi` は応答ボディを復号せず `ResponseBody` で返す。
+  `UiSchemaRemoteDataSource` が、括弧の入れ子（128 段まで）、`JsonElement` への解析、
+  `components` / `children` の入れ子（32 段まで）の順に反復処理で検査し、上限内の場合だけ `UiSchemaDto` へ復号する。
+  JSON 解析と DTO への復号はどちらも呼び出しスタック上で再帰するため、いずれも検査を済ませてから行う
 - `UiSchemaDto` / `UiComponentDto`: サーバー応答をそのまま写した DTO。`props` は `JsonObject`
 - `UiSchema` / `UiComponent`: 未知 type を除き、`props` を文字列へ寄せた domain model
 - `UiSchemaResolution`: 契約上の結果（解決済み / 認証されない / 未知の surface）を表す sealed interface
 - `MainUiState` / `DashboardUiModel`: 画面表示の分岐（`MainUiStatus`）と表示内容を表す UI 契約。ViewModel がコンストラクタで直接組み立てる
 
-エンドポイントやフィールドを増やすときも、この4段の分担を保ちます。
+エンドポイントやフィールドを増やすときも、この分担を保ちます。
 
 ## 未実装のもの
 

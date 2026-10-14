@@ -1,22 +1,19 @@
 package com.example.sdui.ui.viewmodel
 
 import app.cash.turbine.test
-import com.example.sdui.domain.model.AuthAccount
 import com.example.sdui.domain.model.AuthSession
-import com.example.sdui.domain.model.value.AccountId
-import com.example.sdui.domain.model.value.AccountName
 import com.example.sdui.domain.repository.AuthRepository
-import com.example.sdui.domain.usecase.RestoreSessionUseCase
+import com.example.sdui.domain.repository.UiSchemaRepository
 import com.example.sdui.domain.usecase.SignOutUseCase
 import com.example.sdui.ui.state.AuthUiState
 import com.example.sdui.ui.state.AuthUiStatus
-import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.mockk
 import java.io.IOException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -42,53 +39,75 @@ class AuthViewModelTest {
   }
 
   @Test
-  fun flowRestoredSessionEmitsRestoringBeforeSignedIn() = runTest(dispatcher) {
+  fun flowStartupSignOutEmitsSigningOutBeforeSignedOut() = runTest(dispatcher) {
     // Arrange
-    val viewModel = createViewModel(FakeAuthRepository(restoreResult = Result.success(signedIn())))
+    val viewModel = createViewModel(FakeAuthRepository(Result.success(Unit)))
 
     // Act & Assert
-    // Flow: the app stays on the restoring screen until the silent restore answers
+    // Flow: the app clears any leftover session before showing the login screen
     viewModel.uiState.test {
-      assertEquals(AuthUiState(status = AuthUiStatus.RESTORING), awaitItem())
+      assertEquals(AuthUiState(status = AuthUiStatus.SIGNING_OUT), awaitItem())
       advanceUntilIdle()
-      assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_IN, accountName = ACCOUNT_NAME), awaitItem())
+      assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_OUT), awaitItem())
     }
   }
 
   @Test
-  fun normalRestoreWithoutAccountExposesSignedOutState() = runTest(dispatcher) {
+  fun errorStartupSignOutFailureExposesSignOutFailedState() = runTest(dispatcher) {
     // Arrange
-    val viewModel =
-      createViewModel(FakeAuthRepository(restoreResult = Result.success(AuthSession.SignedOut)))
+    val viewModel = createViewModel(FakeAuthRepository(Result.failure(IOException("offline"))))
 
     // Act
-    // Normal: no cached account means the login screen has to be shown
+    // Error: a leftover session that cannot be cleared must not reach the login screen
     advanceUntilIdle()
 
     // Assert
-    assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_OUT), viewModel.uiState.value)
+    assertEquals(AuthUiState(status = AuthUiStatus.SIGN_OUT_FAILED), viewModel.uiState.value)
   }
 
   @Test
-  fun errorRestoreFailureExposesSignedOutState() = runTest(dispatcher) {
+  fun stateTransitionRetryAfterStartupFailureExposesSignedOutState() = runTest(dispatcher) {
     // Arrange
     val repository =
-      FakeAuthRepository(restoreResult = Result.failure(IOException("offline")))
+      FakeAuthRepository(Result.failure(IOException("offline")), Result.success(Unit))
     val viewModel = createViewModel(repository)
+    advanceUntilIdle()
 
     // Act
-    // Error: a failed silent restore is treated as not signed in rather than as a crash
+    // StateTransition: retrying from the failure screen clears the session and opens login
+    viewModel.signOut()
     advanceUntilIdle()
 
     // Assert
-    assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_OUT), viewModel.uiState.value)
+    assertAll(
+      { assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_OUT), viewModel.uiState.value) },
+      { assertEquals(2, repository.signOutCount) },
+    )
+  }
+
+  @Test
+  fun stateTransitionRepeatedFailureStaysOnSignOutFailedState() = runTest(dispatcher) {
+    // Arrange
+    val repository = FakeAuthRepository(Result.failure(IOException("offline")))
+    val viewModel = createViewModel(repository)
+    advanceUntilIdle()
+
+    // Act
+    // StateTransition: a failed retry returns to the retry screen instead of the login screen
+    viewModel.signOut()
+    advanceUntilIdle()
+
+    // Assert
+    assertAll(
+      { assertEquals(AuthUiState(status = AuthUiStatus.SIGN_OUT_FAILED), viewModel.uiState.value) },
+      { assertEquals(2, repository.signOutCount) },
+    )
   }
 
   @Test
   fun stateTransitionSignedInNotificationExposesSignedInState() = runTest(dispatcher) {
     // Arrange
-    val repository = FakeAuthRepository(restoreResult = Result.success(AuthSession.SignedOut))
-    val viewModel = createViewModel(repository)
+    val viewModel = createViewModel(FakeAuthRepository(Result.success(Unit)))
     advanceUntilIdle()
 
     // Act
@@ -98,15 +117,14 @@ class AuthViewModelTest {
     // Assert
     assertAll(
       { assertEquals(true, accepted) },
-      { assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_IN, accountName = ACCOUNT_NAME), viewModel.uiState.value) },
+      { assertEquals(signedInState(), viewModel.uiState.value) },
     )
   }
 
   @Test
   fun boundarySignedInNotificationWhileAlreadySignedInIsRejected() = runTest(dispatcher) {
     // Arrange
-    val viewModel = createViewModel(FakeAuthRepository(restoreResult = Result.success(signedIn())))
-    advanceUntilIdle()
+    val viewModel = createSignedInViewModel(FakeAuthRepository(Result.success(Unit)))
 
     // Act
     // Boundary: a stale login result cannot replace the active account
@@ -115,54 +133,87 @@ class AuthViewModelTest {
     // Assert
     assertAll(
       { assertEquals(false, accepted) },
-      { assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_IN, accountName = ACCOUNT_NAME), viewModel.uiState.value) },
+      { assertEquals(signedInState(), viewModel.uiState.value) },
     )
   }
 
   @Test
-  fun interactionSignedInNotificationDoesNotRestoreSessionAgain() = runTest(dispatcher) {
+  fun boundarySignedInNotificationWhileSignOutFailedIsRejected() = runTest(dispatcher) {
     // Arrange
-    val repository = mockk<AuthRepository>()
-    coEvery { repository.restoreSession() } returns Result.success(AuthSession.SignedOut)
-    val viewModel = createViewModel(repository)
+    val viewModel = createViewModel(FakeAuthRepository(Result.failure(IOException("offline"))))
     advanceUntilIdle()
 
     // Act
-    // Interaction: the login result supplies the account without another silent restore
-    viewModel.onSignedIn(ACCOUNT_NAME)
+    // Boundary: protected content stays hidden until the leftover session is cleared
+    val accepted = viewModel.onSignedIn(ACCOUNT_NAME)
 
     // Assert
-    coVerify(exactly = 1) { repository.restoreSession() }
+    assertAll(
+      { assertEquals(false, accepted) },
+      { assertEquals(AuthUiState(status = AuthUiStatus.SIGN_OUT_FAILED), viewModel.uiState.value) },
+    )
   }
 
   @Test
-  fun flowFailedSignOutEmitsRestoringBeforeSignedOut() = runTest(dispatcher) {
+  fun flowSignOutEmitsSigningOutBeforeSignedOut() = runTest(dispatcher) {
     // Arrange
-    val repository =
-      FakeAuthRepository(
-        restoreResult = Result.success(signedIn()),
-        signOutResult = Result.failure(IOException("offline")),
-      )
-    val viewModel = createViewModel(repository)
-    advanceUntilIdle()
+    val viewModel = createSignedInViewModel(FakeAuthRepository(Result.success(Unit)))
 
     // Act & Assert
-    // Flow: signing out returns to login even when the repository cannot clear the session
+    // Flow: a completed sign-out passes through the progress state before login
     viewModel.uiState.test {
-      assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_IN, accountName = ACCOUNT_NAME), awaitItem())
+      assertEquals(signedInState(), awaitItem())
       viewModel.signOut()
       advanceUntilIdle()
-      assertEquals(AuthUiState(status = AuthUiStatus.RESTORING), awaitItem())
+      assertEquals(AuthUiState(status = AuthUiStatus.SIGNING_OUT), awaitItem())
       assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_OUT), awaitItem())
     }
   }
 
   @Test
+  fun flowFailedSignOutEmitsSigningOutBeforeSignOutFailed() = runTest(dispatcher) {
+    // Arrange
+    val viewModel =
+      createSignedInViewModel(
+        FakeAuthRepository(Result.success(Unit), Result.failure(IOException("offline"))),
+      )
+
+    // Act & Assert
+    // Flow: a failed sign-out never reports SIGNED_OUT
+    viewModel.uiState.test {
+      assertEquals(signedInState(), awaitItem())
+      viewModel.signOut()
+      advanceUntilIdle()
+      assertEquals(AuthUiState(status = AuthUiStatus.SIGNING_OUT), awaitItem())
+      assertEquals(AuthUiState(status = AuthUiStatus.SIGN_OUT_FAILED), awaitItem())
+    }
+  }
+
+  @Test
+  fun interactionSignOutWhileSigningOutIsIgnored() = runTest(dispatcher) {
+    // Arrange
+    val repository = FakeAuthRepository(Result.success(Unit))
+    val viewModel = createSignedInViewModel(repository)
+    repository.signOutGate = CompletableDeferred()
+    viewModel.signOut()
+    advanceUntilIdle()
+
+    // Act
+    // Interaction: a second request while a sign-out is running must not start another one
+    viewModel.signOut()
+    advanceUntilIdle()
+
+    // Assert
+    assertAll(
+      { assertEquals(2, repository.signOutCount) },
+      { assertEquals(AuthUiState(status = AuthUiStatus.SIGNING_OUT), viewModel.uiState.value) },
+    )
+  }
+
+  @Test
   fun interactionSignOutWhileSignedOutIsIgnored() = runTest(dispatcher) {
     // Arrange
-    val repository = mockk<AuthRepository>()
-    coEvery { repository.restoreSession() } returns Result.success(AuthSession.SignedOut)
-    coEvery { repository.signOut() } returns Result.success(Unit)
+    val repository = FakeAuthRepository(Result.success(Unit))
     val viewModel = createViewModel(repository)
     advanceUntilIdle()
 
@@ -172,22 +223,28 @@ class AuthViewModelTest {
     advanceUntilIdle()
 
     // Assert
-    coVerify(exactly = 0) { repository.signOut() }
+    assertAll(
+      { assertEquals(1, repository.signOutCount) },
+      { assertEquals(AuthUiState(status = AuthUiStatus.SIGNED_OUT), viewModel.uiState.value) },
+    )
   }
 
   private fun createViewModel(repository: AuthRepository): AuthViewModel =
     AuthViewModel(
-      restoreSessionUseCase = RestoreSessionUseCase(repository),
-      signOutUseCase = SignOutUseCase(repository),
+      signOutUseCase = SignOutUseCase(repository, mockk<UiSchemaRepository>(relaxed = true)),
     )
 
-  private fun signedIn(): AuthSession.SignedIn =
-    AuthSession.SignedIn(
-      AuthAccount(
-        id = AccountId("6f2c1d4e-0000-0000-0000-000000000000"),
-        name = AccountName(ACCOUNT_NAME),
-      ),
-    )
+  private fun TestScope.createSignedInViewModel(
+    repository: AuthRepository,
+  ): AuthViewModel {
+    val viewModel = createViewModel(repository)
+    advanceUntilIdle()
+    viewModel.onSignedIn(ACCOUNT_NAME)
+    return viewModel
+  }
+
+  private fun signedInState(): AuthUiState =
+    AuthUiState(status = AuthUiStatus.SIGNED_IN, accountName = ACCOUNT_NAME)
 
   private companion object {
     const val ACCOUNT_NAME = "plain@example.onmicrosoft.com"
@@ -195,12 +252,22 @@ class AuthViewModelTest {
 }
 
 private class FakeAuthRepository(
-  var restoreResult: Result<AuthSession>,
-  var signOutResult: Result<Unit> = Result.success(Unit),
+  private val signOutResults: List<Result<Unit>>,
 ) : AuthRepository {
-  override suspend fun restoreSession(): Result<AuthSession> = restoreResult
+  constructor(only: Result<Unit>) : this(listOf(only))
 
-  override suspend fun signIn(): Result<AuthSession> = restoreResult
+  constructor(first: Result<Unit>, second: Result<Unit>) : this(listOf(first, second))
 
-  override suspend fun signOut(): Result<Unit> = signOutResult
+
+  var signOutCount = 0
+    private set
+  var signOutGate: CompletableDeferred<Unit>? = null
+
+  override suspend fun signIn(): Result<AuthSession> = Result.success(AuthSession.SignedOut)
+
+  override suspend fun signOut(): Result<Unit> {
+    signOutCount++
+    signOutGate?.await()
+    return signOutResults[minOf(signOutCount, signOutResults.size) - 1]
+  }
 }

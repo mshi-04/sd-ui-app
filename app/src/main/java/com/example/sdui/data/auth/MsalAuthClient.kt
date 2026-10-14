@@ -8,7 +8,6 @@ import com.microsoft.identity.client.IAuthenticationResult
 import com.microsoft.identity.client.ISingleAccountPublicClientApplication
 import com.microsoft.identity.client.SignInParameters
 import com.microsoft.identity.client.exception.MsalException
-import com.microsoft.identity.client.exception.MsalUiRequiredException
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.resume
@@ -38,17 +37,6 @@ class MsalAuthClient internal constructor(
 
   @Volatile
   private var application: ISingleAccountPublicClientApplication? = null
-
-  suspend fun restoreSignedInAccount(): MsalAccount? =
-    withContext(ioDispatcher) {
-      val client = requireApplication()
-      val account = client.currentAccount.currentAccount ?: return@withContext null
-      try {
-        client.acquireTokenSilent(silentParametersFor(account)).account.toMsalAccount()
-      } catch (error: MsalUiRequiredException) {
-        null
-      }
-    }
 
   suspend fun signIn(): MsalAccount? {
     val client = requireApplication()
@@ -86,8 +74,9 @@ class MsalAuthClient internal constructor(
   suspend fun signOut() {
     withContext(ioDispatcher) {
       val client = requireApplication()
-      if (client.currentAccount.currentAccount != null) {
-        client.signOut()
+      if (client.currentAccount.currentAccount == null) return@withContext
+      if (!client.signOut() && client.currentAccount.currentAccount != null) {
+        throw IllegalStateException("The signed-in account could not be removed.")
       }
     }
   }

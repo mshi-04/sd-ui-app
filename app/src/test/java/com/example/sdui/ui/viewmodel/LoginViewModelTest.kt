@@ -153,8 +153,6 @@ class LoginViewModelTest {
 private class FakeSignInAuthRepository(
   var signInResult: Result<AuthSession>,
 ) : AuthRepository {
-  override suspend fun restoreSession(): Result<AuthSession> = Result.success(AuthSession.SignedOut)
-
   override suspend fun signIn(): Result<AuthSession> = signInResult
 
   override suspend fun signOut(): Result<Unit> = Result.success(Unit)

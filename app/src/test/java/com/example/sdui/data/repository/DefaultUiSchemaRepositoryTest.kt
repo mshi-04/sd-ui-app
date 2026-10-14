@@ -1,5 +1,6 @@
 package com.example.sdui.data.repository
 
+import com.example.sdui.data.di.NetworkModule
 import com.example.sdui.data.model.UiComponentDto
 import com.example.sdui.data.model.UiSchemaDto
 import com.example.sdui.data.remote.SdUiApi
@@ -18,12 +19,17 @@ import io.mockk.mockk
 import java.io.IOException
 import java.net.HttpURLConnection
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import okhttp3.Headers.Companion.headersOf
 import okhttp3.Protocol
 import okhttp3.Request
+import okhttp3.ResponseBody
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertInstanceOf
@@ -61,6 +67,63 @@ class DefaultUiSchemaRepositoryTest {
     repository.getUiSchema(SurfaceId.DASHBOARD)
 
     // Assert
+    coVerify(exactly = 1) { api.getUiSchema(SURFACE, ETAG) }
+  }
+
+  @Test
+  fun interactionRequestAfterClearSchemaCarriesNoEtag() = runTest {
+    // Arrange
+    coEvery { api.getUiSchema(SURFACE, null) } returns schemaResponse()
+    val repository = createRepository()
+    repository.getUiSchema(SurfaceId.DASHBOARD)
+
+    // Act
+    // Interaction: the previous account's ETag is not replayed after the cache is cleared
+    repository.clearSchema()
+    repository.getUiSchema(SurfaceId.DASHBOARD)
+
+    // Assert
+    coVerify(exactly = 2) { api.getUiSchema(SURFACE, null) }
+    coVerify(exactly = 0) { api.getUiSchema(SURFACE, ETAG) }
+  }
+
+  @Test
+  fun coroutineFetchStartedBeforeClearSchemaDoesNotWriteBack() = runTest {
+    // Arrange
+    val inFlight = CompletableDeferred<Response<ResponseBody>>()
+    coEvery { api.getUiSchema(SURFACE, null) } coAnswers { inFlight.await() }
+    val repository = createRepository()
+    val pending = launch(start = CoroutineStart.UNDISPATCHED) {
+      repository.getUiSchema(SurfaceId.DASHBOARD)
+    }
+
+    // Act
+    // Coroutine: a response arriving after the cache was cleared is not stored
+    repository.clearSchema()
+    inFlight.complete(schemaResponse())
+    pending.join()
+    repository.getUiSchema(SurfaceId.DASHBOARD)
+
+    // Assert
+    coVerify(exactly = 2) { api.getUiSchema(SURFACE, null) }
+    coVerify(exactly = 0) { api.getUiSchema(SURFACE, ETAG) }
+  }
+
+  @Test
+  fun normalFetchAfterClearSchemaIsCachedAgain() = runTest {
+    // Arrange
+    coEvery { api.getUiSchema(SURFACE, null) } returns schemaResponse()
+    coEvery { api.getUiSchema(SURFACE, ETAG) } returns notModifiedResponse()
+    val repository = createRepository()
+    repository.clearSchema()
+    repository.getUiSchema(SurfaceId.DASHBOARD)
+
+    // Act
+    // Normal: clearing does not disable caching for later fetches
+    val actual = repository.getUiSchema(SurfaceId.DASHBOARD).getOrThrow()
+
+    // Assert
+    assertEquals(UiSchemaResolution.Resolved(expectedSchema()), actual)
     coVerify(exactly = 1) { api.getUiSchema(SURFACE, ETAG) }
   }
 
@@ -167,14 +230,42 @@ class DefaultUiSchemaRepositoryTest {
     assertInstanceOf(CancellationException::class.java, thrown)
   }
 
-  private fun createRepository(): DefaultUiSchemaRepository =
-    DefaultUiSchemaRepository(UiSchemaRemoteDataSource(api))
+  @Test
+  fun errorTooDeeplyNestedSchemaBecomesFailedResult() = runTest {
+    // Arrange
+    coEvery { api.getUiSchema(SURFACE, null) } returns
+      Response.success(tooDeepSchemaBody(), headersOf("ETag", ETAG))
+    val repository = createRepository()
 
-  private fun schemaResponse(): Response<UiSchemaDto> =
-    Response.success(schemaDto(), headersOf("ETag", ETAG))
+    // Act
+    // Error: a schema nested beyond the client limit is folded into a failed result
+    val actual = repository.getUiSchema(SurfaceId.DASHBOARD)
+
+    // Assert
+    assertInstanceOf(SerializationException::class.java, actual.exceptionOrNull())
+  }
+
+  private fun createRepository(): DefaultUiSchemaRepository =
+    DefaultUiSchemaRepository(UiSchemaRemoteDataSource(api, NetworkModule.provideJson()))
+
+  private fun tooDeepSchemaBody(): ResponseBody {
+    val nested = StringBuilder()
+    repeat(TOO_DEEP_LEVELS) { nested.append("""{"id":"c","type":"Card","children":[""") }
+    repeat(TOO_DEEP_LEVELS) { nested.append("]}") }
+    return """{"surface":"dashboard","version":"1","revision":"r","components":[$nested]}"""
+      .toResponseBody()
+  }
+
+  private fun schemaResponse(): Response<ResponseBody> =
+    Response.success(
+      NetworkModule.provideJson()
+        .encodeToString(UiSchemaDto.serializer(), schemaDto())
+        .toResponseBody(),
+      headersOf("ETag", ETAG),
+    )
 
   // Retrofit only accepts a 304 through the raw-response overload; Response.error(code, body) requires 400+
-  private fun notModifiedResponse(): Response<UiSchemaDto> =
+  private fun notModifiedResponse(): Response<ResponseBody> =
     Response.error(
       "".toResponseBody(),
       okhttp3.Response.Builder()
@@ -185,7 +276,7 @@ class DefaultUiSchemaRepositoryTest {
         .build(),
     )
 
-  private fun errorResponse(code: Int): Response<UiSchemaDto> =
+  private fun errorResponse(code: Int): Response<ResponseBody> =
     Response.error(code, "".toResponseBody())
 
   private fun schemaDto(): UiSchemaDto =
@@ -246,5 +337,6 @@ class DefaultUiSchemaRepositoryTest {
     const val SURFACE = "dashboard"
     const val ETAG = "\"a1b2c3d4\""
     const val REQUEST_URL = "http://localhost/ui/dashboard"
+    const val TOO_DEEP_LEVELS = 33
   }
 }

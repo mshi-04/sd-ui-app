@@ -372,4 +372,6 @@ private class FakeUiSchemaRepository(
   private val result: Result<UiSchemaResolution>,
 ) : UiSchemaRepository {
   override suspend fun getUiSchema(surface: SurfaceId): Result<UiSchemaResolution> = result
+
+  override fun clearSchema() = Unit
 }

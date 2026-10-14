@@ -28,6 +28,7 @@ import dagger.hilt.android.testing.BindValue
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
 import dagger.hilt.android.testing.UninstallModules
+import java.io.IOException
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.CancellationException
@@ -50,27 +51,61 @@ class SdUiAppTest {
   @get:Rule(order = 1) val composeTestRule = createAndroidComposeRule<MainActivity>()
 
   @Test
-  fun stateTransitionRestoredSessionShowsDashboard() {
+  fun stateTransitionStartupSignOutThenSignInShowsDashboard() {
     // Arrange
-    onText(R.string.session_restoring).assertIsDisplayed()
+    auth.startupSignOut.complete(Result.success(Unit))
+    auth.signIns.trySend(Result.success(signedIn("first"))).getOrThrow()
 
     // Act
-    // StateTransition: restoring a session enters the dashboard and requests its schema once
-    auth.restored.complete(Result.success(signedIn("restored")))
-    completeSchema(0, "Restored dashboard")
+    // StateTransition: startup clears any leftover session, so the dashboard needs an explicit sign-in
+    onText(R.string.sign_in).performClick()
+    completeSchema(0, "First dashboard")
 
     // Assert
-    onText(R.string.signed_in_as_format, "restored@example.com").assertIsDisplayed()
-    composeTestRule.onNodeWithText("Restored dashboard").assertIsDisplayed()
-    assertEquals(1, auth.restoreCount.get())
-    assertEquals(0, auth.signInCount.get())
+    onText(R.string.signed_in_as_format, "first@example.com").assertIsDisplayed()
+    composeTestRule.onNodeWithText("First dashboard").assertIsDisplayed()
+    assertEquals(1, auth.signOutCount.get())
+    assertEquals(1, auth.signInCount.get())
     assertEquals(1, schemas.requests.size)
+  }
+
+  @Test
+  fun errorStartupSignOutFailureShowsRetryInsteadOfLogin() {
+    // Arrange
+    auth.startupSignOut.complete(Result.failure(IOException("offline")))
+
+    // Act
+    // Error: a leftover session that cannot be cleared keeps the login screen unreachable
+    val failedMessage = onText(R.string.sign_out_failed)
+
+    // Assert
+    failedMessage.assertIsDisplayed()
+    onText(R.string.sign_out_retry).assertIsDisplayed().assertIsEnabled()
+    onText(R.string.sign_in).assertDoesNotExist()
+    assertEquals(1, auth.signOutCount.get())
+    assertEquals(0, schemas.requests.size)
+  }
+
+  @Test
+  fun stateTransitionRetryAfterStartupSignOutFailureShowsLogin() {
+    // Arrange
+    auth.startupSignOut.complete(Result.failure(IOException("offline")))
+    onText(R.string.sign_out_failed).assertIsDisplayed()
+
+    // Act
+    // StateTransition: a successful retry replaces the failure screen with the login screen
+    onText(R.string.sign_out_retry).performClick()
+
+    // Assert
+    onText(R.string.sign_in).assertIsDisplayed().assertIsEnabled()
+    onText(R.string.sign_out_failed).assertDoesNotExist()
+    assertEquals(2, auth.signOutCount.get())
   }
 
   @Test
   fun stateTransitionSignInResultIsConsumedBeforeReturningToLogin() {
     // Arrange
-    auth.restored.complete(Result.success(AuthSession.SignedOut))
+    auth.startupSignOut.complete(Result.success(Unit))
     auth.signIns.trySend(Result.success(signedIn("first"))).getOrThrow()
 
     // Act
@@ -83,14 +118,32 @@ class SdUiAppTest {
     onText(R.string.sign_in).assertIsDisplayed().assertIsEnabled()
     composeTestRule.onNodeWithText("First dashboard").assertDoesNotExist()
     assertEquals(1, auth.signInCount.get())
-    assertEquals(1, auth.signOutCount.get())
+    assertEquals(2, auth.signOutCount.get())
     assertEquals(1, schemas.requests.size)
+  }
+
+  @Test
+  fun stateTransitionInSessionSignOutFailureShowsRetryWithoutContent() {
+    // Arrange
+    auth.laterSignOutResults.trySend(Result.failure(IOException("offline"))).getOrThrow()
+    signInThroughLogin("first")
+    completeSchema(0, "First dashboard")
+
+    // Act
+    // StateTransition: a failed sign-out hides the dashboard and never shows the login screen
+    onText(R.string.sign_out).performClick()
+
+    // Assert
+    onText(R.string.sign_out_failed).assertIsDisplayed()
+    composeTestRule.onNodeWithText("First dashboard").assertDoesNotExist()
+    onText(R.string.sign_in).assertDoesNotExist()
+    assertEquals(2, auth.signOutCount.get())
   }
 
   @Test
   fun stateTransitionUnauthorizedResponseReturnsToLogin() {
     // Arrange
-    auth.restored.complete(Result.success(signedIn("first")))
+    signInThroughLogin("first")
     awaitSchema(0)
 
     // Act
@@ -99,13 +152,13 @@ class SdUiAppTest {
 
     // Assert
     onText(R.string.sign_in).assertIsDisplayed().assertIsEnabled()
-    assertEquals(1, auth.signOutCount.get())
+    assertEquals(2, auth.signOutCount.get())
   }
 
   @Test
   fun stateTransitionReloginDoesNotReusePreviousUnauthorizedState() {
     // Arrange
-    auth.restored.complete(Result.success(signedIn("first")))
+    signInThroughLogin("first")
     awaitSchema(0)
     schemas.requests[0].complete(Result.success(UiSchemaResolution.Unauthorized))
     onText(R.string.sign_in).assertIsDisplayed()
@@ -121,14 +174,14 @@ class SdUiAppTest {
 
     // Assert
     composeTestRule.onNodeWithText("Second dashboard").assertIsDisplayed()
-    assertEquals(1, auth.signOutCount.get())
+    assertEquals(2, auth.signOutCount.get())
     assertEquals(2, schemas.requests.size)
   }
 
   @Test
   fun stateTransitionReloginHidesPreviousAccountContentWhileLoading() {
     // Arrange
-    auth.restored.complete(Result.success(signedIn("first")))
+    signInThroughLogin("first")
     completeSchema(0, "First dashboard")
     onText(R.string.sign_out).performClick()
     auth.signIns.trySend(Result.success(signedIn("second"))).getOrThrow()
@@ -147,7 +200,7 @@ class SdUiAppTest {
   @Test
   fun coroutineReloginCancelsThePreviousAccountsRequest() {
     // Arrange
-    auth.restored.complete(Result.success(signedIn("first")))
+    signInThroughLogin("first")
     awaitSchema(0)
     onText(R.string.sign_out).performClick()
     auth.signIns.trySend(Result.success(signedIn("second"))).getOrThrow()
@@ -162,13 +215,13 @@ class SdUiAppTest {
     // Assert
     composeTestRule.onNodeWithText("Second dashboard").assertIsDisplayed()
     assertEquals(1, schemas.cancellationCount.get())
-    assertEquals(1, auth.signOutCount.get())
+    assertEquals(2, auth.signOutCount.get())
   }
 
   @Test
   fun stateTransitionActivityRecreationRetainsSessionAndReloadsSchema() {
     // Arrange
-    auth.restored.complete(Result.success(signedIn("restored")))
+    signInThroughLogin("restored")
     completeSchema(0, "Before recreation")
 
     // Act
@@ -180,15 +233,14 @@ class SdUiAppTest {
     onText(R.string.signed_in_as_format, "restored@example.com").assertIsDisplayed()
     composeTestRule.onNodeWithText("After recreation").assertIsDisplayed()
     composeTestRule.onNodeWithText("Before recreation").assertDoesNotExist()
-    assertEquals(1, auth.restoreCount.get())
-    assertEquals(0, auth.signOutCount.get())
+    assertEquals(1, auth.signOutCount.get())
     assertEquals(2, schemas.requests.size)
   }
 
   @Test
   fun stateTransitionSignInCompletesAfterActivityRecreation() {
     // Arrange
-    auth.restored.complete(Result.success(AuthSession.SignedOut))
+    auth.startupSignOut.complete(Result.success(Unit))
     onText(R.string.sign_in).performClick()
     composeTestRule.waitUntil { auth.signInCount.get() == 1 }
 
@@ -203,6 +255,12 @@ class SdUiAppTest {
     composeTestRule.onNodeWithText("Recreated dashboard").assertIsDisplayed()
     assertEquals(1, auth.signInCount.get())
     assertEquals(1, schemas.requests.size)
+  }
+
+  private fun signInThroughLogin(name: String) {
+    auth.startupSignOut.complete(Result.success(Unit))
+    auth.signIns.trySend(Result.success(signedIn(name))).getOrThrow()
+    onText(R.string.sign_in).performClick()
   }
 
   private fun awaitSchema(index: Int) {
@@ -245,16 +303,11 @@ class SdUiAppTest {
 }
 
 private class FakeAuthRepository : AuthRepository {
-  val restored = CompletableDeferred<Result<AuthSession>>()
+  val startupSignOut = CompletableDeferred<Result<Unit>>()
+  val laterSignOutResults = Channel<Result<Unit>>(Channel.UNLIMITED)
   val signIns = Channel<Result<AuthSession>>(Channel.UNLIMITED)
-  val restoreCount = AtomicInteger()
   val signInCount = AtomicInteger()
   val signOutCount = AtomicInteger()
-
-  override suspend fun restoreSession(): Result<AuthSession> {
-    restoreCount.incrementAndGet()
-    return restored.await()
-  }
 
   override suspend fun signIn(): Result<AuthSession> {
     signInCount.incrementAndGet()
@@ -262,8 +315,8 @@ private class FakeAuthRepository : AuthRepository {
   }
 
   override suspend fun signOut(): Result<Unit> {
-    signOutCount.incrementAndGet()
-    return Result.success(Unit)
+    if (signOutCount.incrementAndGet() == 1) return startupSignOut.await()
+    return laterSignOutResults.tryReceive().getOrNull() ?: Result.success(Unit)
   }
 }
 
@@ -281,4 +334,6 @@ private class FakeUiSchemaRepository : UiSchemaRepository {
       throw error
     }
   }
+
+  override fun clearSchema() = Unit
 }

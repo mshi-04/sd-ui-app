@@ -44,5 +44,5 @@ SD UI の data 層で、domain の interface を既存データ源に接続し�
 - data 層から UI state や Compose の型を参照しない。
 - domain model の不変条件を壊す値を mapper から流さない。
 - サーバー契約を変える場合は [`docs/server-contract.md`](../../../docs/server-contract.md) を先に更新する。
-- 設定値は data 層へハードコードせず `BuildConfig` から受け取る。`BuildConfig` を読むのは Hilt module に限り（ベース URL は `NetworkModule`、API スコープは `di` の `AppConfigModule`）、data 層の実装クラスは module が組み立てた依存や constructor 引数で受け取る。
-- 平文 HTTP の許可は `debug` ビルドに閉じたまま保つ。
+- 設定値は data 層へハードコードせず `BuildConfig` から受け取る。`BuildConfig` は使う側で直接参照し、設定値のための qualifier、wrapper 型、テスト用の差し替え口を新たに作らない（ベース URL は `NetworkModule` と `AuthorizationInterceptor` が直接参照する。API スコープは既存の `di` の `AppConfigModule` が提供する）。
+- 平文 HTTP の許可は `debug` ビルドの `network_security_config.xml` に閉じ、許可する host を `10.0.2.2` と `localhost` に絞ったまま保つ。
