@@ -1,0 +1,18 @@
+<resources>
+    <string name="app_name">SD UI</string>
+    <string name="sign_in">Microsoft アカウントでサインイン</string>
+    <string name="sign_in_description">表示内容を取得するにはサインインが必要です</string>
+    <string name="sign_in_failed">サインインを完了できませんでした</string>
+    <string name="signing_out">サインアウトしています</string>
+    <string name="sign_out_failed">サインアウトを完了できませんでした</string>
+    <string name="sign_out_retry">再試行</string>
+    <string name="signed_in_as_format">サインイン中: %1$s</string>
+    <string name="sign_out">サインアウト</string>
+    <string name="load_ui_schema">再取得</string>
+    <string name="ui_schema_empty">表示できる要素がありません</string>
+    <string name="ui_schema_unauthorized">サーバーに認証されていないため表示できません</string>
+    <string name="ui_schema_surface_not_found">指定した画面はサーバーにありません</string>
+    <string name="ui_schema_failed">サーバーへ接続できませんでした</string>
+    <string name="ui_schema_revision_format">revision: %1$s</string>
+    <string name="api_base_url_format">接続先: %1$s</string>
+</resources>

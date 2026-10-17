@@ -1,0 +1,4 @@
+interface:
+  display_name: "テスト実装"
+  short_description: "JVM Unit Test・instrumented testを扱う"
+  default_prompt: "$test-implementation を使い、変更した振る舞いのテストを追加・修正して検証してください。"

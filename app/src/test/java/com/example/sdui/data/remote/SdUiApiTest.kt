@@ -1,0 +1,178 @@
+package com.example.sdui.data.remote
+
+import com.example.sdui.data.di.NetworkModule
+import java.net.HttpURLConnection
+import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import okhttp3.Headers
+import okhttp3.Headers.Companion.headersOf
+import okhttp3.Interceptor
+import okhttp3.Protocol
+import okhttp3.Request
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
+import org.junit.jupiter.api.Assertions.assertAll
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Test
+
+class SdUiApiTest {
+  private val server = FakeServerInterceptor()
+
+  @Test
+  fun normalUiSchemaResponseBodyIsHandedOverUndecoded() = runTest {
+    // Arrange
+    enqueueJson(SCHEMA_JSON)
+    val api = createApi()
+
+    // Act
+    // Normal: the response body reaches the caller as raw JSON without being decoded into a DTO
+    val actual = api.getUiSchema(SURFACE, null).body()?.string()
+
+    // Assert
+    assertEquals(Json.parseToJsonElement(SCHEMA_JSON), Json.parseToJsonElement(checkNotNull(actual)))
+  }
+
+  @Test
+  fun interactionSurfaceIsSentAsPathSegment() = runTest {
+    // Arrange
+    enqueueJson(SCHEMA_JSON)
+    val api = createApi()
+
+    // Act
+    // Interaction: the call reaches the surface endpoint with GET
+    api.getUiSchema(SURFACE, null)
+    val request = takeRequest()
+
+    // Assert
+    assertAll(
+      { assertEquals("GET", request.method) },
+      { assertEquals("/ui/dashboard", request.url.encodedPath) },
+    )
+  }
+
+  @Test
+  fun interactionEtagIsSentAsConditionalRequestHeader() = runTest {
+    // Arrange
+    enqueueJson(SCHEMA_JSON)
+    val api = createApi()
+
+    // Act
+    // Interaction: a known ETag turns the call into a conditional request
+    api.getUiSchema(SURFACE, ETAG)
+    val request = takeRequest()
+
+    // Assert
+    assertEquals(ETAG, request.header("If-None-Match"))
+  }
+
+  @Test
+  fun boundaryMissingEtagOmitsConditionalRequestHeader() = runTest {
+    // Arrange
+    enqueueJson(SCHEMA_JSON)
+    val api = createApi()
+
+    // Act
+    // Boundary: without a cached ETag the request carries no validator
+    api.getUiSchema(SURFACE, null)
+    val request = takeRequest()
+
+    // Assert
+    assertNull(request.header("If-None-Match"))
+  }
+
+  @Test
+  fun boundaryNotModifiedResponseCarriesNoBody() = runTest {
+    // Arrange
+    server.enqueue(HttpURLConnection.HTTP_NOT_MODIFIED)
+    val api = createApi()
+
+    // Act
+    // Boundary: a matched ETag answers with a status only
+    val actual = api.getUiSchema(SURFACE, ETAG)
+
+    // Assert
+    assertAll(
+      { assertEquals(HttpURLConnection.HTTP_NOT_MODIFIED, actual.code()) },
+      { assertNull(actual.body()) },
+    )
+  }
+
+  @Test
+  fun errorRejectedRequestIsReportedAsUnsuccessfulResponse() = runTest {
+    // Arrange
+    server.enqueue(
+      code = HttpURLConnection.HTTP_UNAUTHORIZED,
+      body = """{"error":{"code":"unauthorized"}}""",
+    )
+    val api = createApi()
+
+    // Act
+    // Error: HTTP failures reach the caller as a response instead of an exception
+    val actual = api.getUiSchema(SURFACE, null)
+
+    // Assert
+    assertAll(
+      { assertFalse(actual.isSuccessful) },
+      { assertEquals(HttpURLConnection.HTTP_UNAUTHORIZED, actual.code()) },
+    )
+  }
+
+  private fun enqueueJson(body: String) {
+    server.enqueue(
+      code = HttpURLConnection.HTTP_OK,
+      body = body,
+      headers = headersOf("Content-Type", "application/json"),
+    )
+  }
+
+  private fun takeRequest(): Request = server.recordedRequests.single()
+
+  private fun createApi(): SdUiApi {
+    val json = NetworkModule.provideJson()
+    val okHttpClient = NetworkModule.provideOkHttpClient(setOf(server))
+    val retrofit =
+      NetworkModule.provideRetrofit(json, okHttpClient)
+        .newBuilder()
+        .baseUrl(BASE_URL)
+        .build()
+    return NetworkModule.provideSdUiApi(retrofit)
+  }
+
+  private companion object {
+    const val SURFACE = "dashboard"
+    const val ETAG = "\"a1b2c3d4\""
+    const val BASE_URL = "http://localhost/"
+    const val SCHEMA_JSON =
+      """{"surface":"dashboard","version":"2026-06-01","revision":"a1b2c3",""" +
+        """"theme":"dark","density":"compact","components":[""" +
+        """{"id":"billing-summary","type":"Card","props":{"title":"Billing","span":6},""" +
+        """"children":[{"id":"invoice-list","type":"List",""" +
+        """"props":{"source":"invoices"},"children":[]}]}]}"""
+  }
+}
+
+private class FakeServerInterceptor : Interceptor {
+  private val responses = ArrayDeque<(Request) -> Response>()
+  val recordedRequests = mutableListOf<Request>()
+
+  fun enqueue(code: Int, body: String = "", headers: Headers = headersOf()) {
+    responses.addLast { request ->
+      Response.Builder()
+        .request(request)
+        .protocol(Protocol.HTTP_1_1)
+        .code(code)
+        .message("HTTP $code")
+        .headers(headers)
+        .body(body.toResponseBody())
+        .build()
+    }
+  }
+
+  override fun intercept(chain: Interceptor.Chain): Response {
+    val request = chain.request()
+    recordedRequests += request
+    return responses.removeFirst()(request)
+  }
+}
